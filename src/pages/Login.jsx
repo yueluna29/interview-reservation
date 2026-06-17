@@ -24,7 +24,7 @@ export default function Login({ onLogin }) {
         .single()
       if (empErr) throw empErr
       const r = emp.role
-      emp._reservationRole = (r === 'super_admin' || r === 'admin') ? 'admin' : 'teacher'
+      emp._reservationRole = (r === 'super_admin' || r === 'admin' || r === 'academic') ? 'admin' : 'teacher'
       onLogin(data.session, emp)
     } catch (err) {
       setError('ログインIDまたはパスワードが正しくありません')

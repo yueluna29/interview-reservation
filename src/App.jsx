@@ -35,7 +35,7 @@ function App() {
     if (data) {
       const r = data.role
       data._reservationRole =
-        (r === 'super_admin' || r === 'admin') ? 'admin' : 'teacher'
+        (r === 'super_admin' || r === 'admin' || r === 'academic') ? 'admin' : 'teacher'
     }
     setProfile(data)
   }
