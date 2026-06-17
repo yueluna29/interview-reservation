@@ -18,6 +18,7 @@ export default function TeacherView() {
   const [availabilities, setAvailabilities] = useState([])
   const [selectedDate, setSelectedDate] = useState(null)
   const [daySlots, setDaySlots] = useState([])
+  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
     const today = new Date()
@@ -55,14 +56,19 @@ export default function TeacherView() {
 
   async function handleSubmit() {
     if (!date || !startTime || !endTime) return
+    setSubmitError('')
     setSubmitting(true)
-    await supabase.from('reservation_availability').insert({
+    const { error } = await supabase.from('reservation_availability').insert({
       teacher_id: profile.auth_user_id,
       date,
       start_time: startTime,
       end_time: endTime,
     })
     setSubmitting(false)
+    if (error) {
+      setSubmitError('提交失败：' + error.message)
+      return
+    }
     loadAvailabilities()
   }
 
@@ -112,6 +118,7 @@ export default function TeacherView() {
             {submitting ? '...' : '提交排班'}
           </button>
         </div>
+        {submitError && <div className="mt-3 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{submitError}</div>}
       </div>
 
       {selectedDate && (
