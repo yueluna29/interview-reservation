@@ -35,7 +35,7 @@ export default function TeacherView() {
     const { data } = await supabase
       .from('reservation_availability')
       .select('*')
-      .eq('teacher_id', profile.id)
+      .eq('teacher_id', profile.auth_user_id)
       .order('date', { ascending: false })
       .limit(20)
     setAvailabilities(data || [])
@@ -46,8 +46,8 @@ export default function TeacherView() {
     setSelectedDate(dateStr)
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, student:profiles!reservation_slots_student_id_fkey(id, name)')
-      .eq('teacher_id', profile.id)
+      .select('*, student:employees!reservation_slots_student_id_fkey(id, name)')
+      .eq('teacher_id', profile.auth_user_id)
       .eq('date', dateStr)
       .order('start_time')
     setDaySlots(data || [])
@@ -57,7 +57,7 @@ export default function TeacherView() {
     if (!date || !startTime || !endTime) return
     setSubmitting(true)
     await supabase.from('reservation_availability').insert({
-      teacher_id: profile.id,
+      teacher_id: profile.auth_user_id,
       date,
       start_time: startTime,
       end_time: endTime,

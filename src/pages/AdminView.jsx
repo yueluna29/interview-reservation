@@ -38,8 +38,8 @@ export default function AdminView() {
       .from('reservation_slots')
       .select(`
         *,
-        teacher:profiles!reservation_slots_teacher_id_fkey(id, name),
-        student:profiles!reservation_slots_student_id_fkey(id, name)
+        teacher:employees!reservation_slots_teacher_id_fkey(id, name),
+        student:employees!reservation_slots_student_id_fkey(id, name)
       `)
       .eq('date', dateStr)
       .order('start_time')
