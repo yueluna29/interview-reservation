@@ -20,8 +20,7 @@ function App() {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      if (session) loadProfile(session.user.id)
-      else setProfile(null)
+      if (!session) setProfile(null)
     })
     return () => subscription.unsubscribe()
   }, [])
