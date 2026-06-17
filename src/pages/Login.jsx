@@ -91,7 +91,10 @@ export default function Login({ onLogin }) {
     setLoading(true)
     try {
       const email = `${loginId}@juku.local`
-      const { data, error: authErr } = await supabase.auth.signUp({ email, password })
+      const { data, error: authErr } = await supabase.auth.signUp({
+        email, password,
+        options: { data: { role: 'student' } },
+      })
       if (authErr) throw authErr
 
       const { error: profErr } = await supabase.from('student_profiles').insert({

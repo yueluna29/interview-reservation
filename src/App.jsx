@@ -26,27 +26,27 @@ function App() {
   }, [])
 
   async function loadProfile(userId) {
+    const { data: stu } = await supabase
+      .from('student_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+    if (stu) {
+      stu._reservationRole = 'student'
+      setProfile(stu)
+      return
+    }
+
     const { data: emp } = await supabase
       .from('employees')
       .select('*')
       .eq('auth_user_id', userId)
-      .single()
+      .maybeSingle()
     if (emp) {
       const r = emp.role
       emp._reservationRole =
         (r === 'super_admin' || r === 'admin' || r === 'academic') ? 'admin' : 'teacher'
       setProfile(emp)
-      return
-    }
-
-    const { data: stu } = await supabase
-      .from('student_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (stu) {
-      stu._reservationRole = 'student'
-      setProfile(stu)
       return
     }
 

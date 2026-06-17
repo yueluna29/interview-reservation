@@ -72,7 +72,7 @@ export default function AdminView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:employees!reservation_slots_student_id_fkey(id, name)`)
+      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:student_profiles!reservation_slots_student_id_fkey(id, name)`)
       .eq('date', dateStr)
       .order('start_time')
     setSlots(data || [])
@@ -83,7 +83,7 @@ export default function AdminView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:employees!reservation_slots_student_id_fkey(id, name)`)
+      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:student_profiles!reservation_slots_student_id_fkey(id, name)`)
       .gte('date', fmtDate(weekDates[0]))
       .lte('date', fmtDate(weekDates[4]))
       .order('date')

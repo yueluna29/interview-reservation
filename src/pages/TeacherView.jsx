@@ -47,7 +47,7 @@ export default function TeacherView() {
     setSelectedDate(dateStr)
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, student:employees!reservation_slots_student_id_fkey(id, name)')
+      .select('*, student:student_profiles!reservation_slots_student_id_fkey(id, name)')
       .eq('teacher_id', profile.auth_user_id)
       .eq('date', dateStr)
       .order('start_time')

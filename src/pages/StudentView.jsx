@@ -74,7 +74,7 @@ export default function StudentView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, teacher:profiles!reservation_slots_teacher_id_fkey(id, name)')
+      .select('*, teacher:employees!reservation_slots_teacher_id_fkey(id, name)')
       .gte('date', fmtDate(weekStart))
       .lte('date', fmtDate(weekEnd))
       .order('date')
@@ -86,7 +86,7 @@ export default function StudentView() {
   async function loadMyBookings() {
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, teacher:profiles!reservation_slots_teacher_id_fkey(id, name)')
+      .select('*, teacher:employees!reservation_slots_teacher_id_fkey(id, name)')
       .eq('student_id', profile.id)
       .order('date', { ascending: false })
       .limit(20)
