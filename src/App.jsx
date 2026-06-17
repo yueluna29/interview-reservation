@@ -27,17 +27,31 @@ function App() {
   }, [])
 
   async function loadProfile(userId) {
-    const { data } = await supabase
+    const { data: emp } = await supabase
       .from('employees')
       .select('*')
       .eq('auth_user_id', userId)
       .single()
-    if (data) {
-      const r = data.role
-      data._reservationRole =
+    if (emp) {
+      const r = emp.role
+      emp._reservationRole =
         (r === 'super_admin' || r === 'admin' || r === 'academic') ? 'admin' : 'teacher'
+      setProfile(emp)
+      return
     }
-    setProfile(data)
+
+    const { data: stu } = await supabase
+      .from('student_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    if (stu) {
+      stu._reservationRole = 'student'
+      setProfile(stu)
+      return
+    }
+
+    setProfile(null)
   }
 
   async function handleLogout() {
@@ -68,6 +82,7 @@ function App() {
     <AuthContext.Provider value={{ session, profile }}>
       <div className="max-w-[680px] mx-auto px-4 py-2 min-h-screen">
         <NavBar role={role} name={profile.name} onLogout={handleLogout} />
+        {role === 'student' && <StudentView />}
         {role === 'teacher' && <TeacherView />}
         {role === 'admin' && <AdminView />}
       </div>
