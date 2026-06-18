@@ -3,14 +3,14 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock, User, X, Check, ListChe
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
 
-const WEEKDAYS = ['月', '火', '水', '木', '金', '土']
+const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
 
 function getWeekDates(offset = 0) {
   const now = new Date()
   const day = now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 6 }, (_, i) => {
+  return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
     return d
@@ -65,7 +65,7 @@ export default function StudentView() {
 
   const weekDates = getWeekDates(weekOffset)
   const weekStart = weekDates[0]
-  const weekEnd = weekDates[5]
+  const weekEnd = weekDates[6]
 
   useEffect(() => { loadSlots() }, [weekOffset])
   useEffect(() => { loadMyBookings() }, [])
@@ -207,7 +207,7 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(6,1fr)] mb-1">
+      <div className="grid grid-cols-[48px_repeat(7,1fr)] mb-1">
         <div />
         {weekDates.map((d, i) => (
           <div key={i} className="text-center py-1.5">
@@ -221,7 +221,7 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(6,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
+      <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
         {TIMES.map((time, ti) => (
           <Fragment key={ti}>
             <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">

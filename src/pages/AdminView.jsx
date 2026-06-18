@@ -16,7 +16,7 @@ const TEACHER_COLORS = [
   { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-300' },
 ]
 
-const WEEKDAYS = ['月', '火', '水', '木', '金', '土']
+const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
 
 const TIMES = []
 for (let h = 9; h < 21; h++) {
@@ -38,7 +38,7 @@ function getWeekDates(offset = 0) {
   const day = now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 6 }, (_, i) => {
+  return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
     return d
@@ -153,14 +153,14 @@ export default function AdminView() {
               <ChevronLeft size={15} />
             </button>
             <span className="text-[13px] font-medium min-w-[120px] text-center">
-              {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[5].getDate()}日
+              {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[6].getDate()}日
             </span>
             <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
               <ChevronRight size={15} />
             </button>
           </div>
 
-          <div className="grid grid-cols-[48px_repeat(6,1fr)] mb-1">
+          <div className="grid grid-cols-[48px_repeat(7,1fr)] mb-1">
             <div />
             {weekDates.map((d, i) => (
               <div key={i} className="text-center py-1.5">
@@ -174,7 +174,7 @@ export default function AdminView() {
             ))}
           </div>
 
-          <div className="grid grid-cols-[48px_repeat(6,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
+          <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
             {TIMES.map((time, ti) => (
               <Fragment key={ti}>
                 <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
