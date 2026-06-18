@@ -3,14 +3,14 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock, User, X, Check, ListChe
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
 
-const WEEKDAYS = ['月', '火', '水', '木', '金']
+const WEEKDAYS = ['月', '火', '水', '木', '金', '土']
 
 function getWeekDates(offset = 0) {
   const now = new Date()
   const day = now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 5 }, (_, i) => {
+  return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
     return d
@@ -65,7 +65,7 @@ export default function StudentView() {
 
   const weekDates = getWeekDates(weekOffset)
   const weekStart = weekDates[0]
-  const weekEnd = weekDates[4]
+  const weekEnd = weekDates[5]
 
   useEffect(() => { loadSlots() }, [weekOffset])
   useEffect(() => { loadMyBookings() }, [])
@@ -74,7 +74,7 @@ export default function StudentView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, teacher:employees!reservation_slots_teacher_id_fkey(id, name)')
+      .select('*')
       .gte('date', fmtDate(weekStart))
       .lte('date', fmtDate(weekEnd))
       .order('date')
@@ -86,7 +86,7 @@ export default function StudentView() {
   async function loadMyBookings() {
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, teacher:employees!reservation_slots_teacher_id_fkey(id, name)')
+      .select('*')
       .eq('student_id', profile.id)
       .order('date', { ascending: false })
       .limit(20)
@@ -97,7 +97,7 @@ export default function StudentView() {
     setBooking(true)
     const { error } = await supabase
       .from('reservation_slots')
-      .update({ student_id: profile.id, status: 'booked', booked_at: new Date().toISOString() })
+      .update({ student_id: profile.id, student_name: profile.name, status: 'booked', booked_at: new Date().toISOString() })
       .eq('id', slot.id)
       .eq('status', 'open')
     if (!error) {
@@ -114,7 +114,7 @@ export default function StudentView() {
   async function handleCancel(slot) {
     await supabase
       .from('reservation_slots')
-      .update({ student_id: null, status: 'open', cancelled_at: new Date().toISOString() })
+      .update({ student_id: null, student_name: null, status: 'open', cancelled_at: new Date().toISOString() })
       .eq('id', slot.id)
     await supabase.from('reservation_booking_log').insert({
       slot_id: slot.id, student_id: profile.id, action: 'cancel'
@@ -154,7 +154,7 @@ export default function StudentView() {
               </div>
               <div className="flex items-center gap-2.5">
                 <User size={15} className="text-zinc-400" />
-                <span>{modal.teacher?.name}</span>
+                <span>{modal.teacher_name}</span>
               </div>
             </div>
             <div className="flex gap-2.5">
@@ -207,7 +207,7 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(5,1fr)] mb-1">
+      <div className="grid grid-cols-[48px_repeat(6,1fr)] mb-1">
         <div />
         {weekDates.map((d, i) => (
           <div key={i} className="text-center py-1.5">
@@ -221,7 +221,7 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(5,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
+      <div className="grid grid-cols-[48px_repeat(6,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
         {TIMES.map((time, ti) => (
           <Fragment key={ti}>
             <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
@@ -238,7 +238,7 @@ export default function StudentView() {
                     if (isMine) {
                       return (
                         <button key={slot.id} className="w-full text-left px-1.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 text-[11px] leading-tight">
-                          <div className="font-semibold">{slot.teacher?.name}</div>
+                          <div className="font-semibold">{slot.teacher_name}</div>
                           <div className="text-[10px] text-blue-400">我的预约</div>
                         </button>
                       )
@@ -246,7 +246,7 @@ export default function StudentView() {
                     if (slot.status === 'booked') {
                       return (
                         <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-100 text-zinc-400 text-[11px] line-through">
-                          {slot.teacher?.name}
+                          {slot.teacher_name}
                         </div>
                       )
                     }
@@ -257,7 +257,7 @@ export default function StudentView() {
                         onClick={() => setModal(slot)}
                         className={`w-full text-left px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight cursor-pointer hover:opacity-80`}
                       >
-                        {slot.teacher?.name}
+                        {slot.teacher_name}
                       </button>
                     )
                   })}
@@ -289,7 +289,7 @@ export default function StudentView() {
                 <div className={`text-[13px] font-medium ${st === 'cancelled' ? 'line-through text-zinc-400' : ''}`}>
                   {d.getMonth() + 1}/{d.getDate()}（{dayLabel}）{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}
                 </div>
-                <div className="text-xs text-zinc-400 mt-0.5">{b.teacher?.name}</div>
+                <div className="text-xs text-zinc-400 mt-0.5">{b.teacher_name}</div>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>

@@ -16,7 +16,7 @@ const TEACHER_COLORS = [
   { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-300' },
 ]
 
-const WEEKDAYS = ['月', '火', '水', '木', '金']
+const WEEKDAYS = ['月', '火', '水', '木', '金', '土']
 
 const TIMES = []
 for (let h = 9; h < 21; h++) {
@@ -38,7 +38,7 @@ function getWeekDates(offset = 0) {
   const day = now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 5 }, (_, i) => {
+  return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
     return d
@@ -72,7 +72,7 @@ export default function AdminView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:student_profiles!reservation_slots_student_id_fkey(id, name)`)
+      .select('*')
       .eq('date', dateStr)
       .order('start_time')
     setSlots(data || [])
@@ -83,9 +83,9 @@ export default function AdminView() {
     setLoading(true)
     const { data } = await supabase
       .from('reservation_slots')
-      .select(`*, teacher:employees!reservation_slots_teacher_id_fkey(id, name), student:student_profiles!reservation_slots_student_id_fkey(id, name)`)
+      .select('*')
       .gte('date', fmtDate(weekDates[0]))
-      .lte('date', fmtDate(weekDates[4]))
+      .lte('date', fmtDate(weekDates[5]))
       .order('date')
       .order('start_time')
     setWeekSlots(data || [])
@@ -153,14 +153,14 @@ export default function AdminView() {
               <ChevronLeft size={15} />
             </button>
             <span className="text-[13px] font-medium min-w-[120px] text-center">
-              {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[4].getDate()}日
+              {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[5].getDate()}日
             </span>
             <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
               <ChevronRight size={15} />
             </button>
           </div>
 
-          <div className="grid grid-cols-[48px_repeat(5,1fr)] mb-1">
+          <div className="grid grid-cols-[48px_repeat(6,1fr)] mb-1">
             <div />
             {weekDates.map((d, i) => (
               <div key={i} className="text-center py-1.5">
@@ -174,7 +174,7 @@ export default function AdminView() {
             ))}
           </div>
 
-          <div className="grid grid-cols-[48px_repeat(5,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
+          <div className="grid grid-cols-[48px_repeat(6,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
             {TIMES.map((time, ti) => (
               <Fragment key={ti}>
                 <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
@@ -190,21 +190,21 @@ export default function AdminView() {
                         if (slot.status === 'booked') {
                           return (
                             <div key={slot.id} className="px-1.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-[10px] leading-tight">
-                              <div className="font-semibold text-teal-800">{slot.teacher?.name}</div>
-                              <div className="text-teal-500">{slot.student?.name}</div>
+                              <div className="font-semibold text-teal-800">{slot.teacher_name}</div>
+                              <div className="text-teal-500">{slot.student_name}</div>
                             </div>
                           )
                         }
                         if (slot.status === 'cancelled') {
                           return (
                             <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-400 text-[10px] line-through">
-                              {slot.teacher?.name}
+                              {slot.teacher_name}
                             </div>
                           )
                         }
                         return (
                           <div key={slot.id} className={`px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight`}>
-                            {slot.teacher?.name}
+                            {slot.teacher_name}
                           </div>
                         )
                       })}
@@ -263,12 +263,12 @@ export default function AdminView() {
                         </td>
                         <td className="px-2 py-2 border-b border-zinc-50">
                           <span className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[11px] font-semibold mr-1.5 align-middle ${ac.bg} ${ac.text}`}>
-                            {row.teacher?.name?.[0]}
+                            {row.teacher_name?.[0]}
                           </span>
-                          {row.teacher?.name}
+                          {row.teacher_name}
                         </td>
-                        <td className={`px-2 py-2 border-b border-zinc-50 ${!row.student ? 'text-zinc-300 italic' : row.status === 'cancelled' ? 'text-red-500 line-through' : ''}`}>
-                          {row.student?.name || '—'}
+                        <td className={`px-2 py-2 border-b border-zinc-50 ${!row.student_name ? 'text-zinc-300 italic' : row.status === 'cancelled' ? 'text-red-500 line-through' : ''}`}>
+                          {row.student_name || '—'}
                         </td>
                         <td className="px-2 py-2 border-b border-zinc-50">
                           <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>{badge.label}</span>

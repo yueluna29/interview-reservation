@@ -47,7 +47,7 @@ export default function TeacherView() {
     setSelectedDate(dateStr)
     const { data } = await supabase
       .from('reservation_slots')
-      .select('*, student:student_profiles!reservation_slots_student_id_fkey(id, name)')
+      .select('*')
       .eq('teacher_id', profile.auth_user_id)
       .eq('date', dateStr)
       .order('start_time')
@@ -150,10 +150,10 @@ export default function TeacherView() {
                       {s.start_time?.slice(0, 5)} - {s.end_time?.slice(0, 5)}
                     </span>
                     <span className={`flex-1 text-[13px] ${
-                      !s.student ? 'text-zinc-400 italic' :
+                      !s.student_name ? 'text-zinc-400 italic' :
                       s.status === 'cancelled' ? 'text-red-500 line-through' : ''
                     }`}>
-                      {s.student?.name || '暂无预约'}
+                      {s.student_name || '暂无预约'}
                     </span>
                     <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>
                       {badge.label}
