@@ -95,6 +95,40 @@ export default function StudentView() {
 
   async function handleBook(slot) {
     setBooking(true)
+
+    const { data: conflict } = await supabase
+      .from('reservation_slots')
+      .select('id')
+      .eq('student_id', profile.id)
+      .eq('status', 'booked')
+      .eq('date', slot.date)
+      .lt('start_time', slot.end_time)
+      .gt('end_time', slot.start_time)
+      .limit(1)
+    if (conflict && conflict.length > 0) {
+      alert('你在该时间段已有预约，请选择其他时间')
+      setBooking(false)
+      setModal(null)
+      return
+    }
+
+    const { data: recentCancel } = await supabase
+      .from('reservation_booking_log')
+      .select('created_at')
+      .eq('student_id', profile.id)
+      .eq('action', 'cancel')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (recentCancel && recentCancel.length > 0) {
+      const diffMin = (Date.now() - new Date(recentCancel[0].created_at).getTime()) / 60000
+      if (diffMin < 10) {
+        alert(`取消预约后需等待10分钟才能再次预约，请${Math.ceil(10 - diffMin)}分钟后再试`)
+        setBooking(false)
+        setModal(null)
+        return
+      }
+    }
+
     const { error } = await supabase
       .from('reservation_slots')
       .update({ student_id: profile.id, student_name: profile.name, status: 'booked', booked_at: new Date().toISOString() })
@@ -157,6 +191,9 @@ export default function StudentView() {
                 <span>{modal.teacher_name}</span>
               </div>
             </div>
+            <div className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              确认预约后如需取消，需等待10分钟后才能再次预约，请确认时间无误。
+            </div>
             <div className="flex gap-2.5">
               <button
                 onClick={() => setModal(null)}
@@ -169,7 +206,7 @@ export default function StudentView() {
                 disabled={booking}
                 className="flex-1 py-2.5 rounded-[10px] bg-teal-600 text-white text-[13px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50"
               >
-                <Check size={14} /> {booking ? '...' : '确认'}
+                <Check size={14} /> {booking ? '...' : '确认预约'}
               </button>
             </div>
           </div>
@@ -193,6 +230,45 @@ export default function StudentView() {
           </button>
         </div>
       </div>
+
+      {myBookings.length > 0 && (
+        <div className="mb-5">
+          <div className="text-sm font-semibold flex items-center gap-1.5 mb-3">
+            <ListChecks size={15} className="text-zinc-500" /> 我的预约记录
+          </div>
+          {myBookings.map(b => {
+            const d = new Date(b.date)
+            const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+            const st = b.status === 'cancelled' ? 'cancelled'
+              : new Date(`${b.date}T${b.start_time}`) > new Date() ? 'upcoming' : 'done'
+            const badge = STATUS_BADGE[st]
+            const canCancel = st === 'upcoming'
+            return (
+              <div key={b.id} className="flex items-center justify-between px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white">
+                <div>
+                  <div className={`text-[13px] font-medium ${st === 'cancelled' ? 'line-through text-zinc-400' : ''}`}>
+                    {d.getMonth() + 1}/{d.getDate()}（{dayLabel}）{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}
+                  </div>
+                  <div className="text-xs text-zinc-400 mt-0.5">{b.teacher_name}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>
+                    {badge.label}
+                  </span>
+                  {canCancel && (
+                    <button
+                      onClick={() => handleCancel(b)}
+                      className="text-[11px] text-red-600 bg-red-50 border border-red-300 rounded-md px-2.5 py-1 hover:bg-red-100"
+                    >
+                      取消
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div className="flex gap-4 mb-3 flex-wrap">
         {[
@@ -268,46 +344,8 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="mt-7">
-        <div className="text-sm font-semibold flex items-center gap-1.5 mb-3">
-          <ListChecks size={15} className="text-zinc-500" /> 我的预约记录
-        </div>
-        {myBookings.length === 0 && (
-          <div className="text-sm text-zinc-400 py-4 text-center">暂无预约记录</div>
-        )}
-        {myBookings.map(b => {
-          const d = new Date(b.date)
-          const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
-          const st = b.status === 'cancelled' ? 'cancelled'
-            : new Date(`${b.date}T${b.start_time}`) > new Date() ? 'upcoming' : 'done'
-          const badge = STATUS_BADGE[st]
-          const canCancel = st === 'upcoming' &&
-            (new Date(`${b.date}T${b.start_time}`) - new Date()) > 24 * 60 * 60 * 1000
-          return (
-            <div key={b.id} className="flex items-center justify-between px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white">
-              <div>
-                <div className={`text-[13px] font-medium ${st === 'cancelled' ? 'line-through text-zinc-400' : ''}`}>
-                  {d.getMonth() + 1}/{d.getDate()}（{dayLabel}）{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}
-                </div>
-                <div className="text-xs text-zinc-400 mt-0.5">{b.teacher_name}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>
-                  {badge.label}
-                </span>
-                {canCancel && (
-                  <button
-                    onClick={() => handleCancel(b)}
-                    className="text-[11px] text-red-600 bg-red-50 border border-red-300 rounded-md px-2.5 py-1 hover:bg-red-100"
-                  >
-                    取消
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+
+
     </div>
   )
 }
