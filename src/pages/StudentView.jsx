@@ -134,11 +134,15 @@ export default function StudentView() {
       .update({ student_id: profile.id, student_name: profile.name, status: 'booked', booked_at: new Date().toISOString() })
       .eq('id', slot.id)
       .eq('status', 'open')
-    if (!error) {
-      await supabase.from('reservation_booking_log').insert({
-        slot_id: slot.id, student_id: profile.id, action: 'book'
-      })
+    if (error) {
+      alert('预约失败：' + error.message)
+      setBooking(false)
+      setModal(null)
+      return
     }
+    await supabase.from('reservation_booking_log').insert({
+      slot_id: slot.id, student_id: profile.id, action: 'book'
+    })
     setModal(null)
     setBooking(false)
     loadSlots()
@@ -146,10 +150,14 @@ export default function StudentView() {
   }
 
   async function handleCancel(slot) {
-    await supabase
+    const { error } = await supabase
       .from('reservation_slots')
       .update({ student_id: null, student_name: null, status: 'open', cancelled_at: new Date().toISOString() })
       .eq('id', slot.id)
+    if (error) {
+      alert('取消失败：' + error.message)
+      return
+    }
     await supabase.from('reservation_booking_log').insert({
       slot_id: slot.id, student_id: profile.id, action: 'cancel'
     })

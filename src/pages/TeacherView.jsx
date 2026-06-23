@@ -106,6 +106,16 @@ export default function TeacherView() {
     loadSlots()
   }
 
+  async function handleCancelSlot(slot) {
+    if (!confirm(`确定取消 ${slot.start_time?.slice(0, 5)}-${slot.end_time?.slice(0, 5)} 的时段吗？`)) return
+    await supabase
+      .from('reservation_slots')
+      .update({ status: 'cancelled' })
+      .eq('id', slot.id)
+      .eq('status', 'open')
+    loadSlots()
+  }
+
   const slotsByDateAndTime = {}
   for (const s of slots) {
     const key = `${s.date}_${s.start_time}`
@@ -227,10 +237,11 @@ export default function TeacherView() {
                         className={`w-full px-1.5 py-1 rounded-md text-[11px] leading-tight border ${badge.bg} ${badge.text} ${
                           slot.status === 'booked' ? 'border-teal-300' :
                           slot.status === 'cancelled' ? 'border-red-300' : 'border-emerald-300'
-                        }`}
+                        } ${slot.status === 'open' ? 'cursor-pointer hover:opacity-70' : ''}`}
+                        onClick={() => slot.status === 'open' && handleCancelSlot(slot)}
                       >
                         <div className="font-semibold truncate">
-                          {slot.student_name || '空闲'}
+                          {slot.status === 'open' ? '空闲 ✕' : slot.student_name || '空闲'}
                         </div>
                       </div>
                     )
