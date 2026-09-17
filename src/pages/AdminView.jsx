@@ -71,7 +71,7 @@ export default function AdminView() {
   async function loadSlots() {
     setLoading(true)
     const { data } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('*')
       .eq('date', dateStr)
       .order('start_time')
@@ -82,7 +82,7 @@ export default function AdminView() {
   async function loadWeekSlots() {
     setLoading(true)
     const { data } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('*')
       .gte('date', fmtDate(weekDates[0]))
       .lte('date', fmtDate(weekDates[5]))

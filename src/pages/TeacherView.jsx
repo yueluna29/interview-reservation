@@ -63,7 +63,7 @@ export default function TeacherView() {
 
   async function loadSlots() {
     const { data } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('*')
       .eq('teacher_id', profile.auth_user_id)
       .gte('date', fmtDate(weekStart))
@@ -80,7 +80,7 @@ export default function TeacherView() {
 
     // 按实际存在的时段判断重叠，老师取消（删除）过的时段可以重新登记
     const { data: overlap } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('id')
       .eq('teacher_id', profile.auth_user_id)
       .eq('date', date)
@@ -246,7 +246,12 @@ export default function TeacherView() {
                         onClick={() => slot.status === 'open' && handleCancelSlot(slot)}
                       >
                         <div className="font-semibold truncate">
-                          {slot.status === 'open' ? '空闲 ✕' : slot.student_name || '空闲'}
+                          {slot.status === 'open'
+                            ? slot.teacher_name || profile.name
+                            : slot.student_name || '已预约'}
+                        </div>
+                        <div className="text-[10px] opacity-70">
+                          {slot.status === 'open' ? '空闲 ✕' : '已预约'}
                         </div>
                       </div>
                     )

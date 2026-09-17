@@ -73,7 +73,7 @@ export default function StudentView() {
   async function loadSlots() {
     setLoading(true)
     const { data } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('*')
       .neq('status', 'cancelled')
       .gte('date', fmtDate(weekStart))
@@ -86,7 +86,7 @@ export default function StudentView() {
 
   async function loadMyBookings() {
     const { data } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('*')
       .eq('student_id', profile.id)
       .order('date', { ascending: false })
@@ -98,7 +98,7 @@ export default function StudentView() {
     setBooking(true)
 
     const { data: conflict } = await supabase
-      .from('reservation_slots')
+      .from('reservation_slots_visible')
       .select('id')
       .eq('student_id', profile.id)
       .eq('status', 'booked')
@@ -330,8 +330,9 @@ export default function StudentView() {
                     }
                     if (slot.status === 'booked') {
                       return (
-                        <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-100 text-zinc-400 text-[11px] line-through">
-                          {slot.teacher_name}
+                        <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-100 text-zinc-400 text-[11px] leading-tight">
+                          <div className="font-semibold">{slot.teacher_name}</div>
+                          <div className="text-[10px]">已预约</div>
                         </div>
                       )
                     }
