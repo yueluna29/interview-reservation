@@ -75,6 +75,7 @@ export default function StudentView() {
     const { data } = await supabase
       .from('reservation_slots')
       .select('*')
+      .neq('status', 'cancelled')
       .gte('date', fmtDate(weekStart))
       .lte('date', fmtDate(weekEnd))
       .order('date')

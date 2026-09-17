@@ -78,8 +78,9 @@ export default function TeacherView() {
     setSubmitError('')
     setSubmitting(true)
 
+    // 按实际存在的时段判断重叠，老师取消（删除）过的时段可以重新登记
     const { data: overlap } = await supabase
-      .from('reservation_availability')
+      .from('reservation_slots')
       .select('id')
       .eq('teacher_id', profile.auth_user_id)
       .eq('date', date)
@@ -107,12 +108,16 @@ export default function TeacherView() {
   }
 
   async function handleCancelSlot(slot) {
-    if (!confirm(`确定取消 ${slot.start_time?.slice(0, 5)}-${slot.end_time?.slice(0, 5)} 的时段吗？`)) return
-    await supabase
+    if (!confirm(`确定取消 ${slot.start_time?.slice(0, 5)}-${slot.end_time?.slice(0, 5)} 的时段吗？取消后学生将无法预约该时段。`)) return
+    const { error } = await supabase
       .from('reservation_slots')
-      .update({ status: 'cancelled' })
+      .delete()
       .eq('id', slot.id)
       .eq('status', 'open')
+    if (error) {
+      alert('取消失败：' + error.message)
+      return
+    }
     loadSlots()
   }
 
