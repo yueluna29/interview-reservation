@@ -1,8 +1,9 @@
 import { useState, useEffect, Fragment } from 'react'
-import { GraduationCap, Plus, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { GraduationCap, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
 import { buildTimeRows } from '../utils/time'
+import AvailabilityForm from '../components/AvailabilityForm'
 
 const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
 
@@ -37,22 +38,10 @@ export default function TeacherView() {
   const { profile } = useAuth()
   const [weekOffset, setWeekOffset] = useState(0)
   const [slots, setSlots] = useState([])
-  const [date, setDate] = useState('')
-  const [startTime, setStartTime] = useState('13:00')
-  const [endTime, setEndTime] = useState('18:00')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
 
   const weekDates = getWeekDates(weekOffset)
   const weekStart = weekDates[0]
   const weekEnd = weekDates[6]
-
-  useEffect(() => {
-    const today = new Date()
-    const next = new Date(today)
-    next.setDate(today.getDate() + 2)
-    setDate(fmtDate(next))
-  }, [])
 
   useEffect(() => { loadSlots() }, [weekOffset])
 
@@ -66,40 +55,6 @@ export default function TeacherView() {
       .order('date')
       .order('start_time')
     setSlots(data || [])
-  }
-
-  async function handleSubmit() {
-    if (!date || !startTime || !endTime) return
-    setSubmitError('')
-    setSubmitting(true)
-
-    // 按实际存在的时段判断重叠，老师取消（删除）过的时段可以重新登记
-    const { data: overlap } = await supabase
-      .from('reservation_slots_visible')
-      .select('id')
-      .eq('teacher_id', profile.auth_user_id)
-      .eq('date', date)
-      .lt('start_time', endTime)
-      .gt('end_time', startTime)
-      .limit(1)
-    if (overlap && overlap.length > 0) {
-      setSubmitError('该时间段与已有排班重叠，请选择其他时间')
-      setSubmitting(false)
-      return
-    }
-
-    const { error } = await supabase.from('reservation_availability').insert({
-      teacher_id: profile.auth_user_id,
-      date,
-      start_time: startTime,
-      end_time: endTime,
-    })
-    setSubmitting(false)
-    if (error) {
-      setSubmitError('提交失败：' + error.message)
-      return
-    }
-    loadSlots()
   }
 
   async function handleCancelSlot(slot) {
@@ -130,49 +85,7 @@ export default function TeacherView() {
         <GraduationCap size={18} className="text-violet-600" /> 我的坐班管理
       </div>
 
-      <div className="bg-zinc-50 rounded-xl p-5 mb-6">
-        <div className="text-sm font-semibold flex items-center gap-1.5 mb-3.5">
-          <Plus size={14} /> 登记坐班时间
-        </div>
-        <div className="flex gap-2.5 flex-wrap items-end">
-          <div>
-            <label className="block text-[11px] text-zinc-500 mb-1">日期</label>
-            <input
-              type="date"
-              value={date}
-              min={fmtDate(new Date())}
-              onChange={e => setDate(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] text-zinc-500 mb-1">开始</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] text-zinc-500 mb-1">结束</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={e => setEndTime(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
-            />
-          </div>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[13px] font-semibold transition-colors disabled:opacity-50"
-          >
-            {submitting ? '...' : '提交排班'}
-          </button>
-        </div>
-        {submitError && <div className="mt-3 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{submitError}</div>}
-      </div>
+      <AvailabilityForm teacherId={profile.auth_user_id} onAdded={loadSlots} />
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-sm font-semibold">

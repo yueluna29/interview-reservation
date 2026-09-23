@@ -1,7 +1,9 @@
 import { useState, useEffect, Fragment } from 'react'
-import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search, Plus, ChevronUp } from 'lucide-react'
 import { supabase } from '../api/supabase'
+import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
+import AvailabilityForm from '../components/AvailabilityForm'
 import { buildTimeRows, isPast, dateLabel } from '../utils/time'
 
 const STATUS_BADGE = {
@@ -42,7 +44,9 @@ function getWeekDates(offset = 0) {
 }
 
 export default function AdminView() {
+  const { profile } = useAuth()
   const [tab, setTab] = useState('calendar')
+  const [showForm, setShowForm] = useState(false)
   const [dayOffset, setDayOffset] = useState(0)
   const [weekOffset, setWeekOffset] = useState(0)
   const [slots, setSlots] = useState([])
@@ -195,6 +199,26 @@ export default function AdminView() {
           </button>
         </div>
       </div>
+
+      {/* 教务也可以像老师一样登记自己的坐班时间 */}
+      {showForm ? (
+        <div className="relative">
+          <button
+            onClick={() => setShowForm(false)}
+            className="absolute right-4 top-4 text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-0.5"
+          >
+            <ChevronUp size={13} /> 收起
+          </button>
+          <AvailabilityForm teacherId={profile.auth_user_id} onAdded={reload} />
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full mb-4 py-2 rounded-xl border border-dashed border-zinc-300 text-[13px] text-zinc-500 hover:text-violet-600 hover:border-violet-300 flex items-center justify-center gap-1 transition-colors"
+        >
+          <Plus size={14} /> 登记我的坐班时间
+        </button>
+      )}
 
       {tab !== 'list' && <div className="grid grid-cols-3 gap-2.5 mb-5">
         {[
