@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { GraduationCap, Plus, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
+import { buildTimeRows } from '../utils/time'
 
 const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
 
@@ -9,12 +10,6 @@ const STATUS_BADGE = {
   open: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: '空闲' },
   booked: { bg: 'bg-teal-100', text: 'text-teal-700', label: '已预约' },
   cancelled: { bg: 'bg-red-50', text: 'text-red-700', label: '已取消' },
-}
-
-const TIMES = []
-for (let h = 9; h < 21; h++) {
-  TIMES.push(`${String(h).padStart(2, '0')}:00`)
-  TIMES.push(`${String(h).padStart(2, '0')}:30`)
 }
 
 function getWeekDates(offset = 0) {
@@ -121,6 +116,7 @@ export default function TeacherView() {
     loadSlots()
   }
 
+  const times = buildTimeRows(slots)
   const slotsByDateAndTime = {}
   for (const s of slots) {
     const key = `${s.date}_${s.start_time}`
@@ -144,6 +140,7 @@ export default function TeacherView() {
             <input
               type="date"
               value={date}
+              min={fmtDate(new Date())}
               onChange={e => setDate(e.target.value)}
               className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
             />
@@ -223,7 +220,7 @@ export default function TeacherView() {
       </div>
 
       <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-        {TIMES.map((time, ti) => (
+        {times.map((time, ti) => (
           <Fragment key={ti}>
             <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
               {time}

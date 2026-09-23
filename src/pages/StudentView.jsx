@@ -2,34 +2,30 @@ import { useState, useEffect, Fragment } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, User, X, Check, ListChecks } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
+import { fmtDate, buildTimeRows, isPast, dateLabel } from '../utils/time'
 
-const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
+const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
-function getWeekDates(offset = 0) {
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
+// 从今天开始的连续 7 天，page=1 是第 8~14 天，以此类推
+function getDaysFrom(page = 0) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
+    const d = new Date(today)
+    d.setDate(today.getDate() + page * 7 + i)
     return d
   })
 }
 
-function fmtDate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function daysFromToday(dateStr) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((new Date(`${dateStr}T00:00:00`) - today) / 86400000)
 }
 
 function isToday(d) {
   const t = new Date()
   return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()
-}
-
-const TIMES = []
-for (let h = 9; h < 21; h++) {
-  TIMES.push(`${String(h).padStart(2, '0')}:00`)
-  TIMES.push(`${String(h).padStart(2, '0')}:30`)
 }
 
 const STATUS_BADGE = {
@@ -56,19 +52,20 @@ function getTeacherColor(teacherId, colorMap) {
 
 export default function StudentView() {
   const { profile } = useAuth()
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [page, setPage] = useState(0)
   const [slots, setSlots] = useState([])
+  const [openDates, setOpenDates] = useState([])
   const [myBookings, setMyBookings] = useState([])
   const [modal, setModal] = useState(null)
   const [loading, setLoading] = useState(true)
   const [booking, setBooking] = useState(false)
 
-  const weekDates = getWeekDates(weekOffset)
+  const weekDates = getDaysFrom(page)
   const weekStart = weekDates[0]
   const weekEnd = weekDates[6]
 
-  useEffect(() => { loadSlots() }, [weekOffset])
-  useEffect(() => { loadMyBookings() }, [])
+  useEffect(() => { loadSlots() }, [page])
+  useEffect(() => { loadMyBookings(); loadOpenDates() }, [])
 
   async function loadSlots() {
     setLoading(true)
@@ -84,6 +81,22 @@ export default function StudentView() {
     setLoading(false)
   }
 
+  // 今天起所有还有空位的日期，方便直接跳过去，不用一周一周翻
+  async function loadOpenDates() {
+    const { data } = await supabase
+      .from('reservation_slots_visible')
+      .select('date, start_time')
+      .eq('status', 'open')
+      .gte('date', fmtDate(new Date()))
+      .order('date')
+    const counts = new Map()
+    for (const s of data || []) {
+      if (isPast(s)) continue
+      counts.set(s.date, (counts.get(s.date) || 0) + 1)
+    }
+    setOpenDates([...counts].map(([date, count]) => ({ date, count })))
+  }
+
   async function loadMyBookings() {
     const { data } = await supabase
       .from('reservation_slots_visible')
@@ -95,6 +108,11 @@ export default function StudentView() {
   }
 
   async function handleBook(slot) {
+    if (isPast(slot)) {
+      alert('该时段已开始，不能预约')
+      setModal(null)
+      return
+    }
     setBooking(true)
 
     const { data: conflict } = await supabase
@@ -130,15 +148,17 @@ export default function StudentView() {
       }
     }
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('reservation_slots')
       .update({ student_id: profile.id, student_name: profile.name, status: 'booked', booked_at: new Date().toISOString() })
       .eq('id', slot.id)
       .eq('status', 'open')
-    if (error) {
-      alert('预约失败：' + error.message)
+      .select('id')
+    if (error || !updated?.length) {
+      alert(error ? '预约失败：' + error.message : '该时段已被预约，请选择其他时间')
       setBooking(false)
       setModal(null)
+      loadSlots()
       return
     }
     await supabase.from('reservation_booking_log').insert({
@@ -148,6 +168,7 @@ export default function StudentView() {
     setBooking(false)
     loadSlots()
     loadMyBookings()
+    loadOpenDates()
   }
 
   async function handleCancel(slot) {
@@ -164,9 +185,11 @@ export default function StudentView() {
     })
     loadSlots()
     loadMyBookings()
+    loadOpenDates()
   }
 
   const colorMap = new Map()
+  const times = buildTimeRows(slots)
   const slotsByDateAndTime = {}
   for (const s of slots) {
     const key = `${s.date}_${s.start_time}`
@@ -228,13 +251,17 @@ export default function StudentView() {
           面试练习预约
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setWeekOffset(o => o - 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
+          <button
+            onClick={() => setPage(p => p - 1)}
+            disabled={page === 0}
+            className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600 disabled:opacity-30 disabled:hover:text-zinc-400"
+          >
             <ChevronLeft size={15} />
           </button>
           <span className="text-[13px] font-medium min-w-[120px] text-center">
-            {weekStart.getMonth() + 1}月{weekStart.getDate()}日 — {weekEnd.getDate()}日
+            {weekStart.getMonth() + 1}月{weekStart.getDate()}日 — {weekEnd.getMonth() !== weekStart.getMonth() && `${weekEnd.getMonth() + 1}月`}{weekEnd.getDate()}日
           </span>
-          <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
+          <button onClick={() => setPage(p => p + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
             <ChevronRight size={15} />
           </button>
         </div>
@@ -279,6 +306,30 @@ export default function StudentView() {
         </div>
       )}
 
+      <div className="mb-4">
+        <div className="text-xs text-zinc-500 mb-2">可预约日期（点击跳转）</div>
+        {openDates.length === 0 ? (
+          <div className="text-xs text-zinc-400">暂无可预约的时段，等老师登记后就会出现在这里</div>
+        ) : (
+          <div className="flex gap-1.5 flex-wrap">
+            {openDates.map(({ date, count }) => {
+              const inView = date >= fmtDate(weekStart) && date <= fmtDate(weekEnd)
+              return (
+                <button
+                  key={date}
+                  onClick={() => setPage(Math.floor(daysFromToday(date) / 7))}
+                  className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${inView
+                    ? 'bg-teal-50 border-teal-300 text-teal-700'
+                    : 'bg-white border-zinc-200 text-zinc-600 hover:border-teal-300'}`}
+                >
+                  {dateLabel(date)} <span className="text-zinc-400">· {count}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-4 mb-3 flex-wrap">
         {[
           { cls: 'bg-emerald-100 border-emerald-300', label: '可预约' },
@@ -296,7 +347,7 @@ export default function StudentView() {
         <div />
         {weekDates.map((d, i) => (
           <div key={i} className="text-center py-1.5">
-            <div className="text-[11px] text-zinc-400">{WEEKDAYS[i]}</div>
+            <div className="text-[11px] text-zinc-400">{DAY_LABELS[d.getDay()]}</div>
             <div className={`text-sm font-semibold mt-0.5 ${isToday(d)
               ? 'bg-teal-600 text-white w-[26px] h-[26px] rounded-full inline-flex items-center justify-center'
               : 'text-zinc-800'}`}>
@@ -307,7 +358,7 @@ export default function StudentView() {
       </div>
 
       <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-        {TIMES.map((time, ti) => (
+        {times.map((time, ti) => (
           <Fragment key={ti}>
             <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
               {time}
@@ -333,6 +384,14 @@ export default function StudentView() {
                         <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-100 text-zinc-400 text-[11px] leading-tight">
                           <div className="font-semibold">{slot.teacher_name}</div>
                           <div className="text-[10px]">已预约</div>
+                        </div>
+                      )
+                    }
+                    if (isPast(slot)) {
+                      return (
+                        <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-300 text-[11px] leading-tight">
+                          <div className="font-semibold">{slot.teacher_name}</div>
+                          <div className="text-[10px]">已过</div>
                         </div>
                       )
                     }

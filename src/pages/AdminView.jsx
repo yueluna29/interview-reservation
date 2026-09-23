@@ -1,6 +1,8 @@
 import { useState, useEffect, Fragment } from 'react'
-import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search } from 'lucide-react'
 import { supabase } from '../api/supabase'
+import AdminSlotModal from '../components/AdminSlotModal'
+import { buildTimeRows, isPast, dateLabel } from '../utils/time'
 
 const STATUS_BADGE = {
   open: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: '空闲' },
@@ -17,12 +19,6 @@ const TEACHER_COLORS = [
 ]
 
 const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
-
-const TIMES = []
-for (let h = 9; h < 21; h++) {
-  TIMES.push(`${String(h).padStart(2, '0')}:00`)
-  TIMES.push(`${String(h).padStart(2, '0')}:30`)
-}
 
 function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -51,6 +47,11 @@ export default function AdminView() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [slots, setSlots] = useState([])
   const [weekSlots, setWeekSlots] = useState([])
+  const [bookings, setBookings] = useState([])
+  const [showPast, setShowPast] = useState(false)
+  const [search, setSearch] = useState('')
+  const [students, setStudents] = useState([])
+  const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const currentDate = new Date()
@@ -67,6 +68,41 @@ export default function AdminView() {
   useEffect(() => {
     if (tab === 'calendar') loadWeekSlots()
   }, [weekOffset, tab])
+
+  useEffect(() => {
+    if (tab === 'list') loadBookings()
+  }, [showPast, tab])
+
+  useEffect(() => { loadStudents() }, [])
+
+  async function loadStudents() {
+    const { data } = await supabase
+      .from('student_profiles')
+      .select('id, name, login_id')
+      .order('name')
+    setStudents(data || [])
+  }
+
+  // 所有预约：默认只看今天及以后，勾选后包含过去的记录（按时间倒序）
+  async function loadBookings() {
+    setLoading(true)
+    let q = supabase
+      .from('reservation_slots_visible')
+      .select('*')
+      .eq('status', 'booked')
+    if (!showPast) q = q.gte('date', fmtDate(new Date()))
+    const { data } = await q
+      .order('date', { ascending: !showPast })
+      .order('start_time', { ascending: !showPast })
+    setBookings(data || [])
+    setLoading(false)
+  }
+
+  function reload() {
+    if (tab === 'table') loadSlots()
+    else if (tab === 'calendar') loadWeekSlots()
+    else loadBookings()
+  }
 
   async function loadSlots() {
     setLoading(true)
@@ -85,7 +121,7 @@ export default function AdminView() {
       .from('reservation_slots_visible')
       .select('*')
       .gte('date', fmtDate(weekDates[0]))
-      .lte('date', fmtDate(weekDates[5]))
+      .lte('date', fmtDate(weekDates[6]))
       .order('date')
       .order('start_time')
     setWeekSlots(data || [])
@@ -104,6 +140,7 @@ export default function AdminView() {
   const booked = (tab === 'table' ? slots : weekSlots).filter(s => s.status === 'booked').length
   const rate = total > 0 ? Math.round((booked / total) * 100) : 0
 
+  const times = buildTimeRows(weekSlots)
   const weekSlotMap = {}
   for (const s of weekSlots) {
     const key = `${s.date}_${s.start_time}`
@@ -111,9 +148,29 @@ export default function AdminView() {
     weekSlotMap[key].push(s)
   }
 
+  const keyword = search.trim()
+  const filteredBookings = keyword
+    ? bookings.filter(b => b.student_name?.includes(keyword) || b.teacher_name?.includes(keyword))
+    : bookings
+  const bookingsByDate = []
+  for (const b of filteredBookings) {
+    const last = bookingsByDate[bookingsByDate.length - 1]
+    if (last && last.date === b.date) last.items.push(b)
+    else bookingsByDate.push({ date: b.date, items: [b] })
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      {editing && (
+        <AdminSlotModal
+          slot={editing}
+          students={students}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reload() }}
+        />
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <div className="text-[17px] font-semibold flex items-center gap-2">
           <LayoutDashboard size={18} className="text-zinc-600" /> 预约总览
         </div>
@@ -130,10 +187,16 @@ export default function AdminView() {
           >
             <LayoutDashboard size={13} className="inline mr-1" />明细
           </button>
+          <button
+            onClick={() => setTab('list')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === 'list' ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500'}`}
+          >
+            <ListChecks size={13} className="inline mr-1" />全部预约
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5 mb-5">
+      {tab !== 'list' && <div className="grid grid-cols-3 gap-2.5 mb-5">
         {[
           { label: '总时段', value: total },
           { label: '已预约', value: booked, color: 'text-teal-600' },
@@ -144,9 +207,58 @@ export default function AdminView() {
             <div className={`text-[22px] font-semibold mt-1 ${s.color || ''}`}>{s.value}</div>
           </div>
         ))}
-      </div>
+      </div>}
 
-      {tab === 'calendar' ? (
+      {tab === 'list' ? (
+        <>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="搜索学生或老师"
+                className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
+              />
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500 shrink-0">
+              <input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} />
+              包含过去
+            </label>
+          </div>
+          <div className="text-xs text-zinc-400 mb-2">共 {filteredBookings.length} 条预约，点击可编辑</div>
+
+          {loading ? (
+            <div className="text-sm text-zinc-400 py-8 text-center">読み込み中...</div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="text-sm text-zinc-400 py-8 text-center">没有预约</div>
+          ) : bookingsByDate.map(group => (
+            <div key={group.date} className="mb-4">
+              <div className="text-[13px] font-semibold text-zinc-700 mb-1.5">{dateLabel(group.date)}</div>
+              {group.items.map(b => {
+                const past = isPast(b)
+                const ac = getColor(b.teacher_id)
+                return (
+                  <button
+                    key={b.id}
+                    onClick={() => setEditing(b)}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white text-left text-[13px] hover:border-teal-300 transition-colors ${past ? 'opacity-50' : ''}`}
+                  >
+                    <span className="font-medium w-[88px] shrink-0">{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}</span>
+                    <span className="flex-1 min-w-0 truncate">
+                      <span className={`inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[10px] font-semibold mr-1.5 align-middle ${ac.bg} ${ac.text}`}>
+                        {b.teacher_name?.[0]}
+                      </span>
+                      {b.teacher_name}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate font-medium text-teal-700">{b.student_name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </>
+      ) : tab === 'calendar' ? (
         <>
           <div className="flex items-center justify-end gap-2 mb-3">
             <button onClick={() => setWeekOffset(o => o - 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
@@ -175,7 +287,7 @@ export default function AdminView() {
           </div>
 
           <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-            {TIMES.map((time, ti) => (
+            {times.map((time, ti) => (
               <Fragment key={ti}>
                 <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
                   {time}
@@ -189,23 +301,23 @@ export default function AdminView() {
                         const tc = getColor(slot.teacher_id)
                         if (slot.status === 'booked') {
                           return (
-                            <div key={slot.id} className="px-1.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-[10px] leading-tight">
+                            <button key={slot.id} onClick={() => setEditing(slot)} className="w-full text-left px-1.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-[10px] leading-tight hover:opacity-80">
                               <div className="font-semibold text-teal-800">{slot.teacher_name}</div>
                               <div className="text-teal-500">{slot.student_name}</div>
-                            </div>
+                            </button>
                           )
                         }
                         if (slot.status === 'cancelled') {
                           return (
-                            <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-400 text-[10px] line-through">
+                            <button key={slot.id} onClick={() => setEditing(slot)} className="w-full text-left px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-400 text-[10px] line-through">
                               {slot.teacher_name}
-                            </div>
+                            </button>
                           )
                         }
                         return (
-                          <div key={slot.id} className={`px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight`}>
+                          <button key={slot.id} onClick={() => setEditing(slot)} className={`w-full text-left px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight hover:opacity-80`}>
                             {slot.teacher_name}
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
@@ -257,7 +369,7 @@ export default function AdminView() {
                     const showTime = row.start_time !== lastTime
                     lastTime = row.start_time
                     return (
-                      <tr key={row.id}>
+                      <tr key={row.id} onClick={() => setEditing(row)} className="cursor-pointer hover:bg-zinc-50">
                         <td className={`px-2 py-2 border-b border-zinc-50 ${showTime ? 'font-medium' : ''}`}>
                           {showTime ? row.start_time?.slice(0, 5) : ''}
                         </td>
