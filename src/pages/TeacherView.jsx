@@ -1,17 +1,10 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect } from 'react'
 import { GraduationCap, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
-import { buildTimeRows } from '../utils/time'
+import { isPast } from '../utils/time'
 import AvailabilityForm from '../components/AvailabilityForm'
-
-const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
-
-const STATUS_BADGE = {
-  open: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: '空闲' },
-  booked: { bg: 'bg-teal-100', text: 'text-teal-700', label: '已预约' },
-  cancelled: { bg: 'bg-red-50', text: 'text-red-700', label: '已取消' },
-}
+import ScheduleBoard from '../components/ScheduleBoard'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -29,14 +22,10 @@ function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function isToday(d) {
-  const t = new Date()
-  return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()
-}
-
 export default function TeacherView() {
   const { profile } = useAuth()
   const [weekOffset, setWeekOffset] = useState(0)
+  const [dayIdx, setDayIdx] = useState(() => (new Date().getDay() + 6) % 7)
   const [slots, setSlots] = useState([])
 
   const weekDates = getWeekDates(weekOffset)
@@ -45,11 +34,11 @@ export default function TeacherView() {
 
   useEffect(() => { loadSlots() }, [weekOffset])
 
+  // 所有老师的排班都要看到；别的老师的学生姓名由视图按身份隐藏
   async function loadSlots() {
     const { data } = await supabase
       .from('reservation_slots_visible')
       .select('*')
-      .eq('teacher_id', profile.auth_user_id)
       .gte('date', fmtDate(weekStart))
       .lte('date', fmtDate(weekEnd))
       .order('date')
@@ -71,12 +60,16 @@ export default function TeacherView() {
     loadSlots()
   }
 
-  const times = buildTimeRows(slots)
-  const slotsByDateAndTime = {}
-  for (const s of slots) {
-    const key = `${s.date}_${s.start_time}`
-    if (!slotsByDateAndTime[key]) slotsByDateAndTime[key] = []
-    slotsByDateAndTime[key].push(s)
+  function slotView(slot) {
+    const mine = slot.teacher_id === profile.auth_user_id
+    const past = isPast(slot)
+    if (slot.status === 'booked') {
+      return { tone: 'booked', title: (mine && slot.student_name) || '已预约', sub: mine ? '已预约' : '', dim: past }
+    }
+    if (slot.status === 'cancelled') return { tone: 'cancelled', title: '已取消' }
+    if (past) return { tone: 'past', title: '空闲' }
+    if (mine) return { tone: 'open', title: '空闲 ✕', onClick: () => handleCancelSlot(slot) }
+    return { tone: 'open', title: '空闲' }
   }
 
   return (
@@ -87,17 +80,17 @@ export default function TeacherView() {
 
       <AvailabilityForm teacherId={profile.auth_user_id} onAdded={loadSlots} />
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <CalendarDays size={15} className="text-zinc-500" />
-          排班预览
+          排班表
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setWeekOffset(o => o - 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
             <ChevronLeft size={15} />
           </button>
           <span className="text-[13px] font-medium min-w-[120px] text-center">
-            {weekStart.getMonth() + 1}月{weekStart.getDate()}日 — {weekEnd.getDate()}日
+            {weekStart.getMonth() + 1}月{weekStart.getDate()}日 — {weekEnd.getMonth() !== weekStart.getMonth() && `${weekEnd.getMonth() + 1}月`}{weekEnd.getDate()}日
           </span>
           <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
             <ChevronRight size={15} />
@@ -105,73 +98,30 @@ export default function TeacherView() {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-3 flex-wrap">
+      <div className="flex gap-4 mb-3 flex-wrap items-center">
         {[
           { cls: 'bg-emerald-50 border-emerald-300', label: '空闲' },
           { cls: 'bg-teal-100 border-teal-300', label: '已预约' },
-          { cls: 'bg-red-50 border-red-300', label: '已取消' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5 text-xs text-zinc-500">
             <div className={`w-3 h-3 rounded-sm border ${l.cls}`} />
             {l.label}
           </div>
         ))}
+        <span className="text-xs text-zinc-400">点自己的「空闲 ✕」可取消该时段</span>
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(7,1fr)] mb-1">
-        <div />
-        {weekDates.map((d, i) => (
-          <div key={i} className="text-center py-1.5">
-            <div className="text-[11px] text-zinc-400">{WEEKDAYS[i]}</div>
-            <div className={`text-sm font-semibold mt-0.5 ${isToday(d)
-              ? 'bg-violet-600 text-white w-[26px] h-[26px] rounded-full inline-flex items-center justify-center'
-              : 'text-zinc-800'}`}>
-              {d.getDate()}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-        {times.map((time, ti) => (
-          <Fragment key={ti}>
-            <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
-              {time}
-            </div>
-            {weekDates.map((d, di) => {
-              const dateStr = fmtDate(d)
-              const key = `${dateStr}_${time}:00`
-              const cellSlots = slotsByDateAndTime[key] || []
-              return (
-                <div key={`${ti}-${di}`} className="bg-white p-0.5 min-h-[48px] flex flex-col gap-0.5">
-                  {cellSlots.map(slot => {
-                    const badge = STATUS_BADGE[slot.status] || STATUS_BADGE.open
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`w-full px-1.5 py-1 rounded-md text-[11px] leading-tight border ${badge.bg} ${badge.text} ${
-                          slot.status === 'booked' ? 'border-teal-300' :
-                          slot.status === 'cancelled' ? 'border-red-300' : 'border-emerald-300'
-                        } ${slot.status === 'open' ? 'cursor-pointer hover:opacity-70' : ''}`}
-                        onClick={() => slot.status === 'open' && handleCancelSlot(slot)}
-                      >
-                        <div className="font-semibold truncate">
-                          {slot.status === 'open'
-                            ? slot.teacher_name || profile.name
-                            : slot.student_name || '已预约'}
-                        </div>
-                        <div className="text-[10px] opacity-70">
-                          {slot.status === 'open' ? '空闲 ✕' : '已预约'}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </Fragment>
-        ))}
-      </div>
+      <ScheduleBoard
+        days={weekDates}
+        selected={dayIdx}
+        onSelect={setDayIdx}
+        slots={slots}
+        slotView={slotView}
+        dayNote={ds => `${new Set(ds.map(s => s.teacher_id)).size}人`}
+        columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.length}`}
+        pinTeacherId={profile.auth_user_id}
+        accent="violet"
+      />
     </div>
   )
 }

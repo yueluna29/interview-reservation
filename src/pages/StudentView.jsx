@@ -1,10 +1,9 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, User, X, Check, ListChecks } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
-import { fmtDate, buildTimeRows, isPast, dateLabel } from '../utils/time'
-
-const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
+import { fmtDate, isPast, dateLabel } from '../utils/time'
+import ScheduleBoard from '../components/ScheduleBoard'
 
 // 从今天开始的连续 7 天，page=1 是第 8~14 天，以此类推
 function getDaysFrom(page = 0) {
@@ -23,11 +22,6 @@ function daysFromToday(dateStr) {
   return Math.round((new Date(`${dateStr}T00:00:00`) - today) / 86400000)
 }
 
-function isToday(d) {
-  const t = new Date()
-  return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()
-}
-
 const STATUS_BADGE = {
   upcoming: { bg: 'bg-teal-100', text: 'text-teal-700', label: '即将开始' },
   booked: { bg: 'bg-teal-100', text: 'text-teal-700', label: '已预约' },
@@ -35,24 +29,10 @@ const STATUS_BADGE = {
   cancelled: { bg: 'bg-red-50', text: 'text-red-700', label: '已取消' },
 }
 
-const TEACHER_COLORS = [
-  { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' },
-  { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-300' },
-  { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
-  { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' },
-  { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-300' },
-]
-
-function getTeacherColor(teacherId, colorMap) {
-  if (!colorMap.has(teacherId)) {
-    colorMap.set(teacherId, TEACHER_COLORS[colorMap.size % TEACHER_COLORS.length])
-  }
-  return colorMap.get(teacherId)
-}
-
 export default function StudentView() {
   const { profile } = useAuth()
   const [page, setPage] = useState(0)
+  const [dayIdx, setDayIdx] = useState(0)
   const [slots, setSlots] = useState([])
   const [openDates, setOpenDates] = useState([])
   const [myBookings, setMyBookings] = useState([])
@@ -188,13 +168,19 @@ export default function StudentView() {
     loadOpenDates()
   }
 
-  const colorMap = new Map()
-  const times = buildTimeRows(slots)
-  const slotsByDateAndTime = {}
-  for (const s of slots) {
-    const key = `${s.date}_${s.start_time}`
-    if (!slotsByDateAndTime[key]) slotsByDateAndTime[key] = []
-    slotsByDateAndTime[key].push(s)
+  function slotView(slot) {
+    if (slot.student_id === profile.id) return { tone: 'mine', title: '我的预约' }
+    if (slot.status === 'booked') return { tone: 'full', title: '已约满' }
+    if (isPast(slot)) return { tone: 'past', title: '已过' }
+    return { tone: 'open', title: '可预约', onClick: () => setModal(slot) }
+  }
+
+  const bookable = s => s.status === 'open' && !isPast(s)
+
+  function jumpTo(date) {
+    const n = daysFromToday(date)
+    setPage(Math.floor(n / 7))
+    setDayIdx(n % 7)
   }
 
   return (
@@ -313,16 +299,19 @@ export default function StudentView() {
         ) : (
           <div className="flex gap-1.5 flex-wrap">
             {openDates.map(({ date, count }) => {
+              const selected = date === fmtDate(weekDates[dayIdx])
               const inView = date >= fmtDate(weekStart) && date <= fmtDate(weekEnd)
               return (
                 <button
                   key={date}
-                  onClick={() => setPage(Math.floor(daysFromToday(date) / 7))}
-                  className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${inView
-                    ? 'bg-teal-50 border-teal-300 text-teal-700'
-                    : 'bg-white border-zinc-200 text-zinc-600 hover:border-teal-300'}`}
+                  onClick={() => jumpTo(date)}
+                  className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${selected
+                    ? 'bg-teal-600 border-teal-600 text-white'
+                    : inView
+                      ? 'bg-teal-50 border-teal-300 text-teal-700'
+                      : 'bg-white border-zinc-200 text-zinc-600 hover:border-teal-300'}`}
                 >
-                  {dateLabel(date)} <span className="text-zinc-400">· {count}</span>
+                  {dateLabel(date)} <span className={selected ? 'text-teal-100' : 'text-zinc-400'}>· {count}</span>
                 </button>
               )
             })}
@@ -332,7 +321,7 @@ export default function StudentView() {
 
       <div className="flex gap-4 mb-3 flex-wrap">
         {[
-          { cls: 'bg-emerald-100 border-emerald-300', label: '可预约' },
+          { cls: 'bg-emerald-50 border-emerald-300', label: '可预约' },
           { cls: 'bg-blue-100 border-blue-300', label: '我的预约' },
           { cls: 'bg-zinc-100 border-zinc-100', label: '已约满' },
         ].map(l => (
@@ -343,78 +332,18 @@ export default function StudentView() {
         ))}
       </div>
 
-      <div className="grid grid-cols-[48px_repeat(7,1fr)] mb-1">
-        <div />
-        {weekDates.map((d, i) => (
-          <div key={i} className="text-center py-1.5">
-            <div className="text-[11px] text-zinc-400">{DAY_LABELS[d.getDay()]}</div>
-            <div className={`text-sm font-semibold mt-0.5 ${isToday(d)
-              ? 'bg-teal-600 text-white w-[26px] h-[26px] rounded-full inline-flex items-center justify-center'
-              : 'text-zinc-800'}`}>
-              {d.getDate()}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-        {times.map((time, ti) => (
-          <Fragment key={ti}>
-            <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
-              {time}
-            </div>
-            {weekDates.map((date, di) => {
-              const dateStr = fmtDate(date)
-              const key = `${dateStr}_${time}:00`
-              const cellSlots = slotsByDateAndTime[key] || []
-              return (
-                <div key={`${ti}-${di}`} className="bg-white p-0.5 min-h-[48px] flex flex-col gap-0.5">
-                  {cellSlots.map(slot => {
-                    const isMine = slot.student_id === profile.id
-                    if (isMine) {
-                      return (
-                        <button key={slot.id} className="w-full text-left px-1.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 text-[11px] leading-tight">
-                          <div className="font-semibold">{slot.teacher_name}</div>
-                          <div className="text-[10px] text-blue-400">我的预约</div>
-                        </button>
-                      )
-                    }
-                    if (slot.status === 'booked') {
-                      return (
-                        <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-100 text-zinc-400 text-[11px] leading-tight">
-                          <div className="font-semibold">{slot.teacher_name}</div>
-                          <div className="text-[10px]">已预约</div>
-                        </div>
-                      )
-                    }
-                    if (isPast(slot)) {
-                      return (
-                        <div key={slot.id} className="px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-300 text-[11px] leading-tight">
-                          <div className="font-semibold">{slot.teacher_name}</div>
-                          <div className="text-[10px]">已过</div>
-                        </div>
-                      )
-                    }
-                    const tc = getTeacherColor(slot.teacher_id, colorMap)
-                    return (
-                      <button
-                        key={slot.id}
-                        onClick={() => setModal(slot)}
-                        className={`w-full text-left px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight cursor-pointer hover:opacity-80`}
-                      >
-                        {slot.teacher_name}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </Fragment>
-        ))}
-      </div>
-
-
-
+      <ScheduleBoard
+        days={weekDates}
+        selected={dayIdx}
+        onSelect={setDayIdx}
+        slots={slots}
+        slotView={slotView}
+        dayNote={ds => {
+          const n = ds.filter(bookable).length
+          return n > 0 ? `可约${n}` : ds.every(isPast) ? '已过' : '已满'
+        }}
+        columnNote={cs => `可约 ${cs.filter(bookable).length}`}
+      />
     </div>
   )
 }

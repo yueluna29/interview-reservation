@@ -1,10 +1,12 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect } from 'react'
 import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search, Plus, ChevronUp } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
 import AvailabilityForm from '../components/AvailabilityForm'
-import { buildTimeRows, isPast, dateLabel } from '../utils/time'
+import ScheduleBoard from '../components/ScheduleBoard'
+import { isPast, dateLabel } from '../utils/time'
+import { TEACHER_COLORS } from '../utils/teacherColors'
 
 const STATUS_BADGE = {
   open: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: '空闲' },
@@ -12,23 +14,8 @@ const STATUS_BADGE = {
   cancelled: { bg: 'bg-red-50', text: 'text-red-700', label: '已取消' },
 }
 
-const TEACHER_COLORS = [
-  { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' },
-  { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-300' },
-  { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
-  { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' },
-  { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-300' },
-]
-
-const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
-
 function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function isToday(d) {
-  const t = new Date()
-  return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()
 }
 
 function getWeekDates(offset = 0) {
@@ -49,6 +36,7 @@ export default function AdminView() {
   const [showForm, setShowForm] = useState(false)
   const [dayOffset, setDayOffset] = useState(0)
   const [weekOffset, setWeekOffset] = useState(0)
+  const [weekDayIdx, setWeekDayIdx] = useState(() => (new Date().getDay() + 6) % 7)
   const [slots, setSlots] = useState([])
   const [weekSlots, setWeekSlots] = useState([])
   const [bookings, setBookings] = useState([])
@@ -144,12 +132,11 @@ export default function AdminView() {
   const booked = (tab === 'table' ? slots : weekSlots).filter(s => s.status === 'booked').length
   const rate = total > 0 ? Math.round((booked / total) * 100) : 0
 
-  const times = buildTimeRows(weekSlots)
-  const weekSlotMap = {}
-  for (const s of weekSlots) {
-    const key = `${s.date}_${s.start_time}`
-    if (!weekSlotMap[key]) weekSlotMap[key] = []
-    weekSlotMap[key].push(s)
+  function slotView(slot) {
+    const base = { onClick: () => setEditing(slot), dim: isPast(slot) }
+    if (slot.status === 'booked') return { ...base, tone: 'booked', title: slot.student_name || '已预约', sub: '已预约' }
+    if (slot.status === 'cancelled') return { ...base, tone: 'cancelled', title: '已取消' }
+    return { ...base, tone: 'open', title: '空闲' }
   }
 
   const keyword = search.trim()
@@ -284,72 +271,41 @@ export default function AdminView() {
         </>
       ) : tab === 'calendar' ? (
         <>
-          <div className="flex items-center justify-end gap-2 mb-3">
-            <button onClick={() => setWeekOffset(o => o - 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
-              <ChevronLeft size={15} />
-            </button>
-            <span className="text-[13px] font-medium min-w-[120px] text-center">
-              {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[6].getDate()}日
-            </span>
-            <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
-              <ChevronRight size={15} />
-            </button>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div className="flex gap-4 flex-wrap items-center">
+              {[
+                { cls: 'bg-emerald-50 border-emerald-300', label: '空闲' },
+                { cls: 'bg-teal-100 border-teal-300', label: '已预约' },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <div className={`w-3 h-3 rounded-sm border ${l.cls}`} />
+                  {l.label}
+                </div>
+              ))}
+              <span className="text-xs text-zinc-400">点击时段可编辑</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setWeekOffset(o => o - 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
+                <ChevronLeft size={15} />
+              </button>
+              <span className="text-[13px] font-medium min-w-[120px] text-center">
+                {weekDates[0].getMonth() + 1}月{weekDates[0].getDate()}日 — {weekDates[6].getMonth() !== weekDates[0].getMonth() && `${weekDates[6].getMonth() + 1}月`}{weekDates[6].getDate()}日
+              </span>
+              <button onClick={() => setWeekOffset(o => o + 1)} className="w-[30px] h-[30px] rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-400 hover:text-zinc-600">
+                <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-[48px_repeat(7,1fr)] mb-1">
-            <div />
-            {weekDates.map((d, i) => (
-              <div key={i} className="text-center py-1.5">
-                <div className="text-[11px] text-zinc-400">{WEEKDAYS[i]}</div>
-                <div className={`text-sm font-semibold mt-0.5 ${isToday(d)
-                  ? 'bg-teal-600 text-white w-[26px] h-[26px] rounded-full inline-flex items-center justify-center'
-                  : 'text-zinc-800'}`}>
-                  {d.getDate()}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-px bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200">
-            {times.map((time, ti) => (
-              <Fragment key={ti}>
-                <div className="bg-white px-1 py-1.5 text-[11px] text-zinc-400 text-right min-h-[48px] flex items-start justify-end">
-                  {time}
-                </div>
-                {weekDates.map((date, di) => {
-                  const key = `${fmtDate(date)}_${time}:00`
-                  const cellSlots = weekSlotMap[key] || []
-                  return (
-                    <div key={`${ti}-${di}`} className="bg-white p-0.5 min-h-[48px] flex flex-col gap-0.5">
-                      {cellSlots.map(slot => {
-                        const tc = getColor(slot.teacher_id)
-                        if (slot.status === 'booked') {
-                          return (
-                            <button key={slot.id} onClick={() => setEditing(slot)} className="w-full text-left px-1.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-[10px] leading-tight hover:opacity-80">
-                              <div className="font-semibold text-teal-800">{slot.teacher_name}</div>
-                              <div className="text-teal-500">{slot.student_name}</div>
-                            </button>
-                          )
-                        }
-                        if (slot.status === 'cancelled') {
-                          return (
-                            <button key={slot.id} onClick={() => setEditing(slot)} className="w-full text-left px-1.5 py-1 rounded-md bg-zinc-50 text-zinc-400 text-[10px] line-through">
-                              {slot.teacher_name}
-                            </button>
-                          )
-                        }
-                        return (
-                          <button key={slot.id} onClick={() => setEditing(slot)} className={`w-full text-left px-1.5 py-1 rounded-md ${tc.bg} ${tc.text} border ${tc.border} text-[11px] font-semibold leading-tight hover:opacity-80`}>
-                            {slot.teacher_name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </Fragment>
-            ))}
-          </div>
+          <ScheduleBoard
+            days={weekDates}
+            selected={weekDayIdx}
+            onSelect={setWeekDayIdx}
+            slots={weekSlots}
+            slotView={slotView}
+            dayNote={ds => `${new Set(ds.map(s => s.teacher_id)).size}人`}
+            columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.length}`}
+          />
         </>
       ) : (
         <>

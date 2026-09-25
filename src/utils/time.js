@@ -2,17 +2,19 @@ export function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 日历默认显示 9:00–20:30，老师登记了范围外或非整点/半点的时段也要能显示出来
-const BASE_TIMES = []
-for (let h = 9; h < 21; h++) {
-  BASE_TIMES.push(`${String(h).padStart(2, '0')}:00`)
-  BASE_TIMES.push(`${String(h).padStart(2, '0')}:30`)
+function toMinutes(t) {
+  return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
 }
 
+// 某一天的时间行：从最早到最晚的时段每 30 分钟一行（中间空档也保留），非整点/半点的时段单独占一行
 export function buildTimeRows(slots) {
-  const set = new Set(BASE_TIMES)
-  for (const s of slots) {
-    if (s.start_time) set.add(s.start_time.slice(0, 5))
+  const starts = slots.filter(s => s.start_time).map(s => s.start_time.slice(0, 5))
+  if (starts.length === 0) return []
+  const set = new Set(starts)
+  const first = Math.min(...starts.map(toMinutes))
+  const last = Math.max(...starts.map(toMinutes))
+  for (let m = Math.ceil(first / 30) * 30; m <= last; m += 30) {
+    set.add(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
   }
   return [...set].sort()
 }
