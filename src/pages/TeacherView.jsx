@@ -34,7 +34,7 @@ export default function TeacherView() {
 
   useEffect(() => { loadSlots() }, [weekOffset])
 
-  // 所有老师的排班都要看到；别的老师的学生姓名由视图按身份隐藏
+  // 所有老师的排班和预约学生都要看到（视图对员工返回学生姓名）
   async function loadSlots() {
     const { data } = await supabase
       .from('reservation_slots_visible')
@@ -64,7 +64,7 @@ export default function TeacherView() {
     const mine = slot.teacher_id === profile.auth_user_id
     const past = isPast(slot)
     if (slot.status === 'booked') {
-      return { tone: 'booked', title: (mine && slot.student_name) || '已预约', sub: mine ? '已预约' : '', dim: past }
+      return { tone: 'booked', title: slot.student_name || '已预约', sub: '已预约', dim: past }
     }
     if (slot.status === 'cancelled') return { tone: 'cancelled', title: '已取消' }
     if (past) return { tone: 'past', title: '空闲' }
