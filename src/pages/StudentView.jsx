@@ -171,6 +171,7 @@ export default function StudentView() {
   function slotView(slot) {
     if (slot.student_id === profile.id) return { tone: 'mine', title: '我的预约' }
     if (slot.status === 'booked') return { tone: 'full', title: '已约满' }
+    if (slot.status === 'blocked') return { tone: 'full', title: '不可约' }
     if (isPast(slot)) return { tone: 'past', title: '已过' }
     return { tone: 'open', title: '可预约', onClick: () => setModal(slot) }
   }
@@ -323,7 +324,7 @@ export default function StudentView() {
         {[
           { cls: 'bg-emerald-50 border-emerald-300', label: '可预约' },
           { cls: 'bg-blue-100 border-blue-300', label: '我的预约' },
-          { cls: 'bg-zinc-100 border-zinc-100', label: '已约满' },
+          { cls: 'bg-zinc-100 border-zinc-100', label: '已约满 / 不可约' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5 text-xs text-zinc-500">
             <div className={`w-3 h-3 rounded-sm border ${l.cls}`} />

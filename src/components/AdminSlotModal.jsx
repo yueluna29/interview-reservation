@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react'
-import { CalendarDays, Clock, GraduationCap, X, Trash2, ArrowRightLeft } from 'lucide-react'
+import { CalendarDays, Clock, GraduationCap, X, Trash2, ArrowRightLeft, Ban, RotateCcw } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { fmtDate, isPast, dateLabel } from '../utils/time'
+import BlockNoteInput from './BlockNoteInput'
 
-const STATUS_LABEL = { open: '空闲', booked: '已预约', cancelled: '已取消' }
+const STATUS_LABEL = { open: '空闲', booked: '已预约', cancelled: '已取消', blocked: '不可约' }
 
-// 教务编辑单个时段：指定/更换/取消学生、改约到其他空闲时段、删除时段
+// 教务编辑单个时段：指定/更换/取消学生、改约到其他空闲时段、设为不可约、删除时段
 export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   const [studentId, setStudentId] = useState(slot.student_id || '')
   const [moveDate, setMoveDate] = useState(slot.date)
   const [moveOptions, setMoveOptions] = useState([])
   const [moveTarget, setMoveTarget] = useState('')
+  const [note, setNote] = useState(slot.note || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   const isBooked = slot.status === 'booked'
+  const isBlocked = slot.status === 'blocked'
 
   useEffect(() => {
     if (!isBooked || !moveDate) return
@@ -68,7 +71,7 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
       }
       const { error } = await supabase
         .from('reservation_slots')
-        .update({ student_id: studentId, student_name: student.name, status: 'booked', booked_at: new Date().toISOString() })
+        .update({ student_id: studentId, student_name: student.name, status: 'booked', note: null, booked_at: new Date().toISOString() })
         .eq('id', slot.id)
       return error && '保存失败：' + error.message
     })
@@ -94,6 +97,16 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
         .update({ student_id: null, student_name: null, status: 'open', booked_at: null })
         .eq('id', slot.id)
       return releaseError && '新时段已预约，但原时段释放失败：' + releaseError.message
+    })
+  }
+
+  function handleBlock(blocked) {
+    run(async () => {
+      const { error } = await supabase
+        .from('reservation_slots')
+        .update(blocked ? { status: 'blocked', note: note.trim() || null } : { status: 'open', note: null })
+        .eq('id', slot.id)
+      return error && '保存失败：' + error.message
     })
   }
 
@@ -189,6 +202,31 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
             >
               <ArrowRightLeft size={13} /> 改约
             </button>
+          </div>
+        )}
+
+        {!isBooked && (
+          <div className="mb-4">
+            <label className="block text-[11px] text-zinc-500 mb-1">不可约的原因（学生只会看到「不可约」）</label>
+            <BlockNoteInput value={note} onChange={setNote} />
+            <div className="flex gap-2 mt-2">
+              {isBlocked && (
+                <button
+                  onClick={() => handleBlock(false)}
+                  disabled={busy}
+                  className="flex-1 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 text-[13px] font-medium flex items-center justify-center gap-1 disabled:opacity-40"
+                >
+                  <RotateCcw size={13} /> 恢复可预约
+                </button>
+              )}
+              <button
+                onClick={() => handleBlock(true)}
+                disabled={busy}
+                className="flex-1 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-[13px] font-medium flex items-center justify-center gap-1 disabled:opacity-40"
+              >
+                <Ban size={13} /> {isBlocked ? '保存' : '设为不可约'}
+              </button>
+            </div>
           </div>
         )}
 

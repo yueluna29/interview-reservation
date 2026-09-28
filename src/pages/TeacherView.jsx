@@ -5,6 +5,7 @@ import { useAuth } from '../App'
 import { isPast } from '../utils/time'
 import AvailabilityForm from '../components/AvailabilityForm'
 import ScheduleBoard from '../components/ScheduleBoard'
+import TeacherSlotModal from '../components/TeacherSlotModal'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -27,6 +28,7 @@ export default function TeacherView() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [dayIdx, setDayIdx] = useState(() => (new Date().getDay() + 6) % 7)
   const [slots, setSlots] = useState([])
+  const [editing, setEditing] = useState(null)
 
   const weekDates = getWeekDates(weekOffset)
   const weekStart = weekDates[0]
@@ -46,34 +48,30 @@ export default function TeacherView() {
     setSlots(data || [])
   }
 
-  async function handleCancelSlot(slot) {
-    if (!confirm(`确定取消 ${slot.start_time?.slice(0, 5)}-${slot.end_time?.slice(0, 5)} 的时段吗？取消后学生将无法预约该时段。`)) return
-    const { error } = await supabase
-      .from('reservation_slots')
-      .delete()
-      .eq('id', slot.id)
-      .eq('status', 'open')
-    if (error) {
-      alert('取消失败：' + error.message)
-      return
-    }
-    loadSlots()
-  }
-
   function slotView(slot) {
     const mine = slot.teacher_id === profile.auth_user_id
     const past = isPast(slot)
+    const onClick = mine && !past ? () => setEditing(slot) : undefined
     if (slot.status === 'booked') {
       return { tone: 'booked', title: slot.student_name || '已预约', sub: '已预约', dim: past }
     }
     if (slot.status === 'cancelled') return { tone: 'cancelled', title: '已取消' }
+    if (slot.status === 'blocked') return { tone: 'blocked', title: slot.note || '不可约', sub: '不可约', dim: past, onClick }
     if (past) return { tone: 'past', title: '空闲' }
-    if (mine) return { tone: 'open', title: '空闲 ✕', onClick: () => handleCancelSlot(slot) }
-    return { tone: 'open', title: '空闲' }
+    return { tone: 'open', title: '空闲', onClick }
   }
 
   return (
     <div>
+      {editing && (
+        <TeacherSlotModal
+          slot={editing}
+          ownDaySlots={slots.filter(s => s.teacher_id === profile.auth_user_id && s.date === editing.date)}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); loadSlots() }}
+        />
+      )}
+
       <div className="text-[17px] font-semibold flex items-center gap-2 mb-5">
         <GraduationCap size={18} className="text-violet-600" /> 我的坐班管理
       </div>
@@ -102,13 +100,14 @@ export default function TeacherView() {
         {[
           { cls: 'bg-emerald-50 border-emerald-300', label: '空闲' },
           { cls: 'bg-teal-100 border-teal-300', label: '已预约' },
+          { cls: 'bg-amber-50 border-amber-300', label: '不可约' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5 text-xs text-zinc-500">
             <div className={`w-3 h-3 rounded-sm border ${l.cls}`} />
             {l.label}
           </div>
         ))}
-        <span className="text-xs text-zinc-400">点自己的「空闲 ✕」可取消该时段</span>
+        <span className="text-xs text-zinc-400">点自己的时段可删除，或设为不可约并写明要做什么</span>
       </div>
 
       <ScheduleBoard
@@ -118,7 +117,7 @@ export default function TeacherView() {
         slots={slots}
         slotView={slotView}
         dayNote={ds => `${new Set(ds.map(s => s.teacher_id)).size}人`}
-        columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.length}`}
+        columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.filter(s => s.status !== 'blocked').length}`}
         pinTeacherId={profile.auth_user_id}
         accent="violet"
       />

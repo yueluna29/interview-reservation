@@ -7,6 +7,7 @@ const WEEKDAY = '日月火水木金土'
 const TONES = {
   open: 'bg-emerald-50 border-emerald-300 text-emerald-700',
   booked: 'bg-teal-100 border-teal-300 text-teal-800',
+  blocked: 'bg-amber-50 border-amber-300 text-amber-800',
   mine: 'bg-blue-100 border-blue-300 text-blue-800',
   full: 'bg-zinc-100 border-zinc-100 text-zinc-400',
   past: 'bg-zinc-50 border-zinc-100 text-zinc-300',

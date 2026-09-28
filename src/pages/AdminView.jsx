@@ -12,6 +12,7 @@ const STATUS_BADGE = {
   open: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: '空闲' },
   booked: { bg: 'bg-teal-100', text: 'text-teal-700', label: '已预约' },
   cancelled: { bg: 'bg-red-50', text: 'text-red-700', label: '已取消' },
+  blocked: { bg: 'bg-amber-50', text: 'text-amber-700', label: '不可约' },
 }
 
 function fmtDate(d) {
@@ -128,14 +129,17 @@ export default function AdminView() {
     return colorMap.get(teacherId)
   }
 
-  const total = tab === 'table' ? slots.length : weekSlots.length
-  const booked = (tab === 'table' ? slots : weekSlots).filter(s => s.status === 'booked').length
+  // 不可约的时段不算进可预约总数
+  const shown = (tab === 'table' ? slots : weekSlots).filter(s => s.status !== 'blocked')
+  const total = shown.length
+  const booked = shown.filter(s => s.status === 'booked').length
   const rate = total > 0 ? Math.round((booked / total) * 100) : 0
 
   function slotView(slot) {
     const base = { onClick: () => setEditing(slot), dim: isPast(slot) }
     if (slot.status === 'booked') return { ...base, tone: 'booked', title: slot.student_name || '已预约', sub: '已预约' }
     if (slot.status === 'cancelled') return { ...base, tone: 'cancelled', title: '已取消' }
+    if (slot.status === 'blocked') return { ...base, tone: 'blocked', title: slot.note || '不可约', sub: '不可约' }
     return { ...base, tone: 'open', title: '空闲' }
   }
 
@@ -276,6 +280,7 @@ export default function AdminView() {
               {[
                 { cls: 'bg-emerald-50 border-emerald-300', label: '空闲' },
                 { cls: 'bg-teal-100 border-teal-300', label: '已预约' },
+                { cls: 'bg-amber-50 border-amber-300', label: '不可约' },
               ].map(l => (
                 <div key={l.label} className="flex items-center gap-1.5 text-xs text-zinc-500">
                   <div className={`w-3 h-3 rounded-sm border ${l.cls}`} />
@@ -304,7 +309,7 @@ export default function AdminView() {
             slots={weekSlots}
             slotView={slotView}
             dayNote={ds => `${new Set(ds.map(s => s.teacher_id)).size}人`}
-            columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.length}`}
+            columnNote={cs => `已约 ${cs.filter(s => s.status === 'booked').length}/${cs.filter(s => s.status !== 'blocked').length}`}
           />
         </>
       ) : (
@@ -359,9 +364,13 @@ export default function AdminView() {
                           </span>
                           {row.teacher_name}
                         </td>
-                        <td className={`px-2 py-2 border-b border-zinc-50 ${!row.student_name ? 'text-zinc-300 italic' : row.status === 'cancelled' ? 'text-red-500 line-through' : ''}`}>
-                          {row.student_name || '—'}
-                        </td>
+                        {row.status === 'blocked' ? (
+                          <td className="px-2 py-2 border-b border-zinc-50 text-amber-700 truncate">{row.note || '—'}</td>
+                        ) : (
+                          <td className={`px-2 py-2 border-b border-zinc-50 ${!row.student_name ? 'text-zinc-300 italic' : row.status === 'cancelled' ? 'text-red-500 line-through' : ''}`}>
+                            {row.student_name || '—'}
+                          </td>
+                        )}
                         <td className="px-2 py-2 border-b border-zinc-50">
                           <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}>{badge.label}</span>
                         </td>
