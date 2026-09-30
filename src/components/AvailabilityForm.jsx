@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { fmtDate } from '../utils/time'
+import RoomInput from './RoomInput'
 
 function defaultDate() {
   const d = new Date()
@@ -14,8 +15,21 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
   const [date, setDate] = useState(defaultDate)
   const [startTime, setStartTime] = useState('13:00')
   const [endTime, setEndTime] = useState('18:00')
+  const [room, setRoom] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  // 默认填上这位老师上次登记的教室
+  useEffect(() => {
+    supabase
+      .from('reservation_slots_visible')
+      .select('room')
+      .eq('teacher_id', teacherId)
+      .not('room', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => { if (data?.[0]) setRoom(r => r || data[0].room) })
+  }, [teacherId])
 
   async function handleSubmit() {
     if (!date || !startTime || !endTime) return
@@ -50,6 +64,7 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
       date,
       start_time: startTime,
       end_time: endTime,
+      room: room.trim() || null,
     })
     setSubmitting(false)
     if (error) {
@@ -92,6 +107,10 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
             onChange={e => setEndTime(e.target.value)}
             className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
           />
+        </div>
+        <div>
+          <label className="block text-[11px] text-zinc-500 mb-1">教室</label>
+          <RoomInput value={room} onChange={setRoom} className="w-[130px]" />
         </div>
         <button
           onClick={handleSubmit}

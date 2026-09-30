@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { MapPin } from 'lucide-react'
 import { fmtDate, buildTimeRows, dateLabel } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
 
@@ -46,9 +47,10 @@ export default function ScheduleBoard({
   for (const s of daySlots) {
     const time = s.start_time.slice(0, 5)
     const col = columnMap.get(s.teacher_id)
-    if (!col) columnMap.set(s.teacher_id, { id: s.teacher_id, name: s.teacher_name || '老师', first: time, slots: [s] })
+    if (!col) columnMap.set(s.teacher_id, { id: s.teacher_id, name: s.teacher_name || '老师', first: time, slots: [s], rooms: new Set([s.room].filter(Boolean)) })
     else {
       col.slots.push(s)
+      if (s.room) col.rooms.add(s.room)
       if (time < col.first) col.first = time
     }
     ;(cells[`${s.teacher_id}_${time}`] ||= []).push(s)
@@ -126,6 +128,12 @@ export default function ScheduleBoard({
                       {col.id === pinTeacherId && <span className={`font-normal ${accentText}`}>（我）</span>}
                     </span>
                   </div>
+                  {col.rooms.size > 0 && (
+                    <div className="text-[11px] text-zinc-600 mt-0.5 pl-[26px] flex items-center gap-0.5 min-w-0">
+                      <MapPin size={10} className="shrink-0 text-zinc-400" />
+                      <span className="truncate">{[...col.rooms].join('、')}</span>
+                    </div>
+                  )}
                   {note && <div className="text-[10px] text-zinc-400 mt-0.5 pl-[26px] truncate">{note}</div>}
                 </div>
               )
@@ -159,6 +167,8 @@ export default function ScheduleBoard({
                         >
                           <div className="text-[11px] font-semibold truncate">{v.title}</div>
                           {v.sub && <div className="text-[10px] opacity-70 truncate">{v.sub}</div>}
+                          {/* 同一位老师当天换了教室，就在每个时段上标出来 */}
+                          {col.rooms.size > 1 && slot.room && <div className="text-[10px] opacity-60 truncate">{slot.room}</div>}
                         </Tag>
                       )
                     })}

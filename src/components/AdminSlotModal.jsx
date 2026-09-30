@@ -3,16 +3,18 @@ import { CalendarDays, Clock, GraduationCap, X, Trash2, ArrowRightLeft, Ban, Rot
 import { supabase } from '../api/supabase'
 import { fmtDate, isPast, dateLabel } from '../utils/time'
 import BlockNoteInput from './BlockNoteInput'
+import RoomInput from './RoomInput'
 
 const STATUS_LABEL = { open: '空闲', booked: '已预约', cancelled: '已取消', blocked: '不可约' }
 
-// 教务编辑单个时段：指定/更换/取消学生、改约到其他空闲时段、设为不可约、删除时段
+// 教务编辑单个时段：改教室、指定/更换/取消学生、改约到其他空闲时段、设为不可约、删除时段
 export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   const [studentId, setStudentId] = useState(slot.student_id || '')
   const [moveDate, setMoveDate] = useState(slot.date)
   const [moveOptions, setMoveOptions] = useState([])
   const [moveTarget, setMoveTarget] = useState('')
   const [note, setNote] = useState(slot.note || '')
+  const [room, setRoom] = useState(slot.room || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -100,6 +102,16 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
     })
   }
 
+  function handleRoom() {
+    run(async () => {
+      const { error } = await supabase
+        .from('reservation_slots')
+        .update({ room: room.trim() || null })
+        .eq('id', slot.id)
+      return error && '保存失败：' + error.message
+    })
+  }
+
   function handleBlock(blocked) {
     run(async () => {
       const { error } = await supabase
@@ -120,6 +132,7 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   }
 
   const studentChanged = studentId !== (slot.student_id || '')
+  const roomChanged = room.trim() !== (slot.room || '')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25" onClick={onClose}>
@@ -142,6 +155,20 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
           <div className="flex items-center gap-2.5">
             <GraduationCap size={15} className="text-zinc-400" />
             <span>{slot.teacher_name}</span>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-[11px] text-zinc-500 mb-1">教室</label>
+          <div className="flex gap-2">
+            <RoomInput value={room} onChange={setRoom} className="flex-1 min-w-0" />
+            <button
+              onClick={handleRoom}
+              disabled={busy || !roomChanged}
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-800 text-white text-[13px] font-medium disabled:opacity-30"
+            >
+              保存
+            </button>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { CalendarDays, Clock, X, Trash2, Ban, RotateCcw } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { dateLabel } from '../utils/time'
 import BlockNoteInput from './BlockNoteInput'
+import RoomInput from './RoomInput'
 
 const EDITABLE = ['open', 'blocked']
 
@@ -18,11 +19,12 @@ function followingRun(slot, ownDaySlots) {
   return chain
 }
 
-// 老师管理自己的时段：设为不可约（写明要做什么）、恢复可预约、删除
+// 老师管理自己的时段：改教室、设为不可约（写明要做什么）、恢复可预约、删除
 export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }) {
   const chain = followingRun(slot, ownDaySlots)
   const [endIdx, setEndIdx] = useState(0)
   const [note, setNote] = useState(slot.note || '')
+  const [room, setRoom] = useState(slot.room || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,6 +32,7 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
   const targets = chain.slice(0, endIdx + 1)
   const ids = targets.map(s => s.id)
   const range = `${slot.start_time.slice(0, 5)}-${targets[targets.length - 1].end_time.slice(0, 5)}`
+  const roomChanged = targets.some(s => (s.room || '') !== room.trim())
 
   async function apply(fn) {
     setBusy(true)
@@ -43,6 +46,15 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
     const skipped = ids.length - (data?.length ?? 0)
     if (skipped > 0) alert(`有 ${skipped} 个时段刚被学生预约了，没有改动`)
     onSaved()
+  }
+
+  function handleRoom() {
+    apply(() => supabase
+      .from('reservation_slots')
+      .update({ room: room.trim() || null })
+      .in('id', ids)
+      .in('status', EDITABLE)
+      .select('id'))
   }
 
   function handleBlock() {
@@ -107,6 +119,20 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
           {chain.length > 1 && (
             <div className="text-[11px] text-zinc-400 pl-[25px]">可以改结束时间，把后面连着的时段一起处理</div>
           )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-[11px] text-zinc-500 mb-1">教室</label>
+          <div className="flex gap-2">
+            <RoomInput value={room} onChange={setRoom} className="flex-1 min-w-0" />
+            <button
+              onClick={handleRoom}
+              disabled={busy || !roomChanged}
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-800 text-white text-[13px] font-medium disabled:opacity-30"
+            >
+              保存
+            </button>
+          </div>
         </div>
 
         <div className="mb-4">

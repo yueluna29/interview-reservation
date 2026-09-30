@@ -265,6 +265,7 @@ export default function AdminView() {
                         {b.teacher_name?.[0]}
                       </span>
                       {b.teacher_name}
+                      {b.room && <span className="text-zinc-400 ml-1.5">{b.room}</span>}
                     </span>
                     <span className="flex-1 min-w-0 truncate font-medium text-teal-700">{b.student_name}</span>
                   </button>
@@ -363,6 +364,7 @@ export default function AdminView() {
                             {row.teacher_name?.[0]}
                           </span>
                           {row.teacher_name}
+                          {row.room && <span className="text-[11px] text-zinc-400 ml-1.5">{row.room}</span>}
                         </td>
                         {row.status === 'blocked' ? (
                           <td className="px-2 py-2 border-b border-zinc-50 text-amber-700 truncate">{row.note || '—'}</td>
