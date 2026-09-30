@@ -175,7 +175,7 @@ export default function AdminView() {
           slot={editing}
           students={students}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); reload() }}
+          onSaved={date => { setEditing(null); if (date) showDate(date); else reload() }}
         />
       )}
 

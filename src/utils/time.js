@@ -24,6 +24,18 @@ export function isPast(slot) {
   return new Date(`${slot.date}T${slot.start_time}`) <= new Date()
 }
 
+// 从 slot 往后，同一位老师当天时间连着的时段（包括 slot 自己），可以一起处理
+export function followingRun(slot, teacherDaySlots) {
+  const sorted = teacherDaySlots.filter(s => s.status !== 'cancelled').sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const chain = [slot]
+  for (let i = sorted.findIndex(s => s.id === slot.id) + 1; i < sorted.length; i++) {
+    const s = sorted[i]
+    if (s.start_time !== chain[chain.length - 1].end_time) break
+    chain.push(s)
+  }
+  return chain
+}
+
 // 某天离今天几天（今天是 0）
 export function daysFromToday(dateStr) {
   const today = new Date()

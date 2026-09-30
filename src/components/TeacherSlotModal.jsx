@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { CalendarDays, Clock, User, X, Trash2, Ban, RotateCcw } from 'lucide-react'
+import { CalendarDays, CalendarClock, Clock, User, X, Trash2, Ban, RotateCcw } from 'lucide-react'
 import { supabase } from '../api/supabase'
-import { dateLabel } from '../utils/time'
+import { dateLabel, followingRun } from '../utils/time'
 import BlockNoteInput from './BlockNoteInput'
 import RoomInput from './RoomInput'
+import RescheduleForm from './RescheduleForm'
 
 const EDITABLE = ['open', 'blocked']
 
@@ -13,19 +14,7 @@ const STATUS_TAG = {
   booked: { label: '已预约', cls: 'bg-teal-100 text-teal-700' },
 }
 
-// 从点的这个时段往后，时间连着的自己的时段，可以一起处理
-function followingRun(slot, ownDaySlots) {
-  const sorted = ownDaySlots.filter(s => s.status !== 'cancelled').sort((a, b) => a.start_time.localeCompare(b.start_time))
-  const chain = [slot]
-  for (let i = sorted.findIndex(s => s.id === slot.id) + 1; i < sorted.length; i++) {
-    const s = sorted[i]
-    if (s.start_time !== chain[chain.length - 1].end_time) break
-    chain.push(s)
-  }
-  return chain
-}
-
-// 老师管理自己的时段：改教室（已预约的也能改）、设为不可约（写明要做什么）、恢复可预约、删除
+// 老师管理自己的时段：改教室（已预约的也能改）、设为不可约（写明要做什么）、恢复可预约、改日期/时间、删除
 // 设为不可约和删除只作用于范围里还没被预约的时段
 export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }) {
   const chain = followingRun(slot, ownDaySlots)
@@ -34,6 +23,7 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
   const [room, setRoom] = useState(slot.room || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
 
   const booked = slot.status === 'booked'
   const blocked = slot.status === 'blocked'
@@ -182,8 +172,10 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
 
         {error && <div className="mt-3 text-[12px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
 
+        {rescheduling && <RescheduleForm slot={slot} teacherDaySlots={ownDaySlots} onDone={onSaved} className="mt-4" />}
+
         {!booked && (
-          <div className="mt-4 pt-3 border-t border-zinc-100">
+          <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
             <button
               onClick={handleDelete}
               disabled={busy}
@@ -191,6 +183,14 @@ export default function TeacherSlotModal({ slot, ownDaySlots, onClose, onSaved }
             >
               <Trash2 size={13} /> 删除{ids.length > 1 ? `这 ${ids.length} 个` : '该'}时段
             </button>
+            {slot.status === 'open' && (
+              <button
+                onClick={() => setRescheduling(r => !r)}
+                className="text-[12px] text-zinc-600 flex items-center gap-1 hover:text-zinc-800"
+              >
+                <CalendarClock size={13} /> {rescheduling ? '收起' : '改日期/时间'}
+              </button>
+            )}
           </div>
         )}
       </div>

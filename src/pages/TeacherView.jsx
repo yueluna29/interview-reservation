@@ -76,7 +76,7 @@ export default function TeacherView() {
           slot={editing}
           ownDaySlots={slots.filter(s => s.teacher_id === profile.auth_user_id && s.date === editing.date)}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); loadSlots() }}
+          onSaved={date => { setEditing(null); if (date) showDate(date); else loadSlots() }}
         />
       )}
 

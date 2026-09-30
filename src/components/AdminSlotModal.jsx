@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { CalendarDays, Clock, GraduationCap, X, Trash2, ArrowRightLeft, Ban, RotateCcw } from 'lucide-react'
+import { CalendarDays, CalendarClock, Clock, GraduationCap, X, Trash2, ArrowRightLeft, Ban, RotateCcw } from 'lucide-react'
 import { supabase } from '../api/supabase'
-import { fmtDate, isPast, dateLabel } from '../utils/time'
+import { fmtDate, isPast, dateLabel, followingRun } from '../utils/time'
 import BlockNoteInput from './BlockNoteInput'
 import RoomInput from './RoomInput'
+import RescheduleForm from './RescheduleForm'
 
 const STATUS_LABEL = { open: '空闲', booked: '已预约', cancelled: '已取消', blocked: '不可约' }
 
-// 教务编辑单个时段：改教室、指定/更换/取消学生、改约到其他空闲时段、设为不可约、删除时段
+// 教务编辑单个时段：改教室（可连同后面连着的时段一起改）、指定/更换/取消学生、改约到其他空闲时段、设为不可约、改空闲时段的日期/时间、删除时段
 export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   const [studentId, setStudentId] = useState(slot.student_id || '')
   const [moveDate, setMoveDate] = useState(slot.date)
@@ -15,11 +16,27 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   const [moveTarget, setMoveTarget] = useState('')
   const [note, setNote] = useState(slot.note || '')
   const [room, setRoom] = useState(slot.room || '')
+  const [teacherDaySlots, setTeacherDaySlots] = useState([])
+  const [roomEndIdx, setRoomEndIdx] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
 
   const isBooked = slot.status === 'booked'
   const isBlocked = slot.status === 'blocked'
+
+  // 这位老师当天的时段，用来找后面连着的、可以一起改教室的时段
+  useEffect(() => {
+    supabase
+      .from('reservation_slots_visible')
+      .select('*')
+      .eq('teacher_id', slot.teacher_id)
+      .eq('date', slot.date)
+      .then(({ data }) => setTeacherDaySlots(data || []))
+  }, [slot.teacher_id, slot.date])
+
+  const roomChain = followingRun(slot, teacherDaySlots)
+  const roomTargets = roomChain.slice(0, roomEndIdx + 1)
 
   useEffect(() => {
     if (!isBooked || !moveDate) return
@@ -104,10 +121,10 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
 
   function handleRoom() {
     run(async () => {
-      const { error } = await supabase
-        .from('reservation_slots')
-        .update({ room: room.trim() || null })
-        .eq('id', slot.id)
+      const { error } = await supabase.rpc('set_slot_room', {
+        slot_ids: roomTargets.map(s => s.id),
+        new_room: room.trim() || null,
+      })
       return error && '保存失败：' + error.message
     })
   }
@@ -132,7 +149,7 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
   }
 
   const studentChanged = studentId !== (slot.student_id || '')
-  const roomChanged = room.trim() !== (slot.room || '')
+  const roomChanged = roomTargets.some(s => (s.room || '') !== room.trim())
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25" onClick={onClose}>
@@ -170,6 +187,19 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
               保存
             </button>
           </div>
+          {roomChain.length > 1 && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-zinc-500">
+              <span>一起改 {slot.start_time.slice(0, 5)} –</span>
+              <select
+                value={roomEndIdx}
+                onChange={e => setRoomEndIdx(Number(e.target.value))}
+                className="px-1.5 py-0.5 rounded-md border border-zinc-300 text-[11px] bg-white"
+              >
+                {roomChain.map((s, i) => <option key={s.id} value={i}>{s.end_time.slice(0, 5)}</option>)}
+              </select>
+              <span>的 {roomTargets.length} 个时段</span>
+            </div>
+          )}
         </div>
 
         <div className="mb-4">
@@ -259,7 +289,9 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
 
         {error && <div className="mb-3 text-[12px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
 
-        <div className="pt-3 border-t border-zinc-100">
+        {rescheduling && <RescheduleForm slot={slot} teacherDaySlots={teacherDaySlots} onDone={onSaved} className="mb-4" />}
+
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
           <button
             onClick={handleDelete}
             disabled={busy}
@@ -267,6 +299,14 @@ export default function AdminSlotModal({ slot, students, onClose, onSaved }) {
           >
             <Trash2 size={13} /> 删除该时段
           </button>
+          {slot.status === 'open' && (
+            <button
+              onClick={() => setRescheduling(r => !r)}
+              className="text-[12px] text-zinc-600 flex items-center gap-1 hover:text-zinc-800"
+            >
+              <CalendarClock size={13} /> {rescheduling ? '收起' : '改日期/时间'}
+            </button>
+          )}
         </div>
       </div>
     </div>

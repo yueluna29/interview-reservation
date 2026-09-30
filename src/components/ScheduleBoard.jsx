@@ -55,6 +55,10 @@ export default function ScheduleBoard({
     }
     ;(cells[`${s.teacher_id}_${time}`] ||= []).push(s)
   }
+  // 当天换了教室、或者只有部分时段填了教室时，每个时段单独标教室，免得只看列头以为全都在那间
+  for (const col of columnMap.values()) {
+    col.roomPerSlot = col.rooms.size > 1 || (col.rooms.size === 1 && col.slots.some(s => !s.room))
+  }
   // 自己排最前，其余按当天开始时间、再按名字
   const columns = [...columnMap.values()].sort((a, b) =>
     (b.id === pinTeacherId) - (a.id === pinTeacherId)
@@ -167,8 +171,7 @@ export default function ScheduleBoard({
                         >
                           <div className="text-[11px] font-semibold truncate">{v.title}</div>
                           {v.sub && <div className="text-[10px] opacity-70 truncate">{v.sub}</div>}
-                          {/* 同一位老师当天换了教室，就在每个时段上标出来 */}
-                          {col.rooms.size > 1 && slot.room && <div className="text-[10px] opacity-60 truncate">{slot.room}</div>}
+                          {col.roomPerSlot && slot.room && <div className="text-[10px] opacity-60 truncate">{slot.room}</div>}
                         </Tag>
                       )
                     })}
