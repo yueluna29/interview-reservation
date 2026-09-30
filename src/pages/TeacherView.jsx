@@ -53,7 +53,7 @@ export default function TeacherView() {
     const past = isPast(slot)
     const onClick = mine && !past ? () => setEditing(slot) : undefined
     if (slot.status === 'booked') {
-      return { tone: 'booked', title: slot.student_name || '已预约', sub: '已预约', dim: past }
+      return { tone: 'booked', title: slot.student_name || '已预约', sub: '已预约', dim: past, onClick }
     }
     if (slot.status === 'cancelled') return { tone: 'cancelled', title: '已取消' }
     if (slot.status === 'blocked') return { tone: 'blocked', title: slot.note || '不可约', sub: '不可约', dim: past, onClick }
@@ -107,7 +107,7 @@ export default function TeacherView() {
             {l.label}
           </div>
         ))}
-        <span className="text-xs text-zinc-400">点自己的时段可删除，或设为不可约并写明要做什么</span>
+        <span className="text-xs text-zinc-400">点自己的时段可改教室、删除，或设为不可约并写明要做什么</span>
       </div>
 
       <ScheduleBoard
