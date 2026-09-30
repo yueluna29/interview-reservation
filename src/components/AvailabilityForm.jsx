@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { supabase } from '../api/supabase'
-import { fmtDate } from '../utils/time'
+import { fmtDate, toMinutes, dateLabel } from '../utils/time'
 import RoomInput from './RoomInput'
 
 function defaultDate() {
@@ -10,14 +10,27 @@ function defaultDate() {
   return fmtDate(d)
 }
 
+// 把连着的时段合并成 '16:00–19:00、20:00–21:00'
+function mergedRanges(slots) {
+  const ranges = []
+  for (const s of [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time))) {
+    const last = ranges[ranges.length - 1]
+    if (last && last.end === s.start_time) last.end = s.end_time
+    else ranges.push({ start: s.start_time, end: s.end_time })
+  }
+  return ranges.map(r => `${r.start.slice(0, 5)}–${r.end.slice(0, 5)}`).join('、')
+}
+
 // 登记坐班时间：老师端和教务端共用，提交后由数据库触发器切成 30 分钟的时段
-export default function AvailabilityForm({ teacherId, onAdded }) {
+// 登记成功或和已有排班重叠时，showDate(date) 让页面刷新并跳到那一天
+export default function AvailabilityForm({ teacherId, showDate }) {
   const [date, setDate] = useState(defaultDate)
   const [startTime, setStartTime] = useState('13:00')
   const [endTime, setEndTime] = useState('18:00')
   const [room, setRoom] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [done, setDone] = useState('')
 
   // 默认填上这位老师上次登记的教室
   useEffect(() => {
@@ -41,21 +54,28 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
       setSubmitError('结束时间要晚于开始时间')
       return
     }
+    // 按 30 分钟切时段，不满 30 分钟切不出来
+    const count = Math.floor((toMinutes(endTime) - toMinutes(startTime)) / 30)
+    if (count === 0) {
+      setSubmitError('至少要登记 30 分钟')
+      return
+    }
     setSubmitError('')
+    setDone('')
     setSubmitting(true)
 
     // 按实际存在的时段判断重叠，老师取消（删除）过的时段可以重新登记
     const { data: overlap } = await supabase
       .from('reservation_slots_visible')
-      .select('id')
+      .select('start_time, end_time')
       .eq('teacher_id', teacherId)
       .eq('date', date)
       .lt('start_time', endTime)
       .gt('end_time', startTime)
-      .limit(1)
     if (overlap && overlap.length > 0) {
-      setSubmitError('该时间段与已有排班重叠，请选择其他时间')
+      setSubmitError(`${dateLabel(date)} 已经登记过 ${mergedRanges(overlap)} 的排班，和这次的时间重叠了（下面日历已跳到这一天）`)
       setSubmitting(false)
+      showDate(date)
       return
     }
 
@@ -71,7 +91,8 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
       setSubmitError('提交失败：' + error.message)
       return
     }
-    onAdded()
+    setDone(`已登记 ${dateLabel(date)} ${startTime}–${endTime}，共 ${count} 个时段`)
+    showDate(date)
   }
 
   return (
@@ -121,6 +142,7 @@ export default function AvailabilityForm({ teacherId, onAdded }) {
         </button>
       </div>
       {submitError && <div className="mt-3 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{submitError}</div>}
+      {done && <div className="mt-3 text-[13px] text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">✓ {done}，下面日历已跳到这一天</div>}
     </div>
   )
 }

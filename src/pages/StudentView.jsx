@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, User, X, Check, ListChecks, MapPin } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
-import { fmtDate, isPast, dateLabel } from '../utils/time'
+import { fmtDate, isPast, dateLabel, daysFromToday } from '../utils/time'
 import ScheduleBoard from '../components/ScheduleBoard'
 
 // 从今天开始的连续 7 天，page=1 是第 8~14 天，以此类推
@@ -14,12 +14,6 @@ function getDaysFrom(page = 0) {
     d.setDate(today.getDate() + page * 7 + i)
     return d
   })
-}
-
-function daysFromToday(dateStr) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((new Date(`${dateStr}T00:00:00`) - today) / 86400000)
 }
 
 const STATUS_BADGE = {

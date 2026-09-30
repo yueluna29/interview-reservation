@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { GraduationCap, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
-import { isPast } from '../utils/time'
+import { isPast, weekPosition } from '../utils/time'
 import AvailabilityForm from '../components/AvailabilityForm'
 import ScheduleBoard from '../components/ScheduleBoard'
 import TeacherSlotModal from '../components/TeacherSlotModal'
@@ -48,6 +48,14 @@ export default function TeacherView() {
     setSlots(data || [])
   }
 
+  // 换了周的话 useEffect 会重新加载，同一周就直接刷新
+  function showDate(date) {
+    const { offset, dayIdx } = weekPosition(date)
+    setDayIdx(dayIdx)
+    if (offset === weekOffset) loadSlots()
+    else setWeekOffset(offset)
+  }
+
   function slotView(slot) {
     const mine = slot.teacher_id === profile.auth_user_id
     const past = isPast(slot)
@@ -76,7 +84,7 @@ export default function TeacherView() {
         <GraduationCap size={18} className="text-violet-600" /> 我的坐班管理
       </div>
 
-      <AvailabilityForm teacherId={profile.auth_user_id} onAdded={loadSlots} />
+      <AvailabilityForm teacherId={profile.auth_user_id} showDate={showDate} />
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-sm font-semibold">

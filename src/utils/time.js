@@ -2,7 +2,7 @@ export function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function toMinutes(t) {
+export function toMinutes(t) {
   return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
 }
 
@@ -22,6 +22,20 @@ export function buildTimeRows(slots) {
 // 时段是否已经开始（开始后不能再预约）
 export function isPast(slot) {
   return new Date(`${slot.date}T${slot.start_time}`) <= new Date()
+}
+
+// 某天离今天几天（今天是 0）
+export function daysFromToday(dateStr) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((new Date(`${dateStr}T00:00:00`) - today) / 86400000)
+}
+
+// 某天在周一开始的周视图里的位置：offset 是离本周差几周，dayIdx 周一=0 … 周日=6
+export function weekPosition(dateStr) {
+  const dayIdx = (new Date(`${dateStr}T00:00:00`).getDay() + 6) % 7
+  const todayIdx = (new Date().getDay() + 6) % 7
+  return { offset: Math.floor((daysFromToday(dateStr) + todayIdx - dayIdx) / 7), dayIdx }
 }
 
 // '2026-09-24' → '9/24（木）'

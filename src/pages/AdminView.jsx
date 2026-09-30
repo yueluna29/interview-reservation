@@ -5,7 +5,7 @@ import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
 import AvailabilityForm from '../components/AvailabilityForm'
 import ScheduleBoard from '../components/ScheduleBoard'
-import { isPast, dateLabel } from '../utils/time'
+import { isPast, dateLabel, daysFromToday, weekPosition } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
 
 const STATUS_BADGE = {
@@ -95,6 +95,20 @@ export default function AdminView() {
     if (tab === 'table') loadSlots()
     else if (tab === 'calendar') loadWeekSlots()
     else loadBookings()
+  }
+
+  // 登记坐班后跳到那一天；换了周/天的话 useEffect 会重新加载，否则直接刷新
+  function showDate(date) {
+    if (tab === 'calendar') {
+      const { offset, dayIdx } = weekPosition(date)
+      setWeekDayIdx(dayIdx)
+      if (offset === weekOffset) loadWeekSlots()
+      else setWeekOffset(offset)
+    } else if (tab === 'table') {
+      const n = daysFromToday(date)
+      if (n === dayOffset) loadSlots()
+      else setDayOffset(n)
+    } else loadBookings()
   }
 
   async function loadSlots() {
@@ -200,7 +214,7 @@ export default function AdminView() {
           >
             <ChevronUp size={13} /> 收起
           </button>
-          <AvailabilityForm teacherId={profile.auth_user_id} onAdded={reload} />
+          <AvailabilityForm teacherId={profile.auth_user_id} showDate={showDate} />
         </div>
       ) : (
         <button
