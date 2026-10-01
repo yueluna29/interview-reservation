@@ -4,6 +4,11 @@ import { supabase } from '../api/supabase'
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'academic']
 
+// 登录ID 会拼成邮箱「ID@juku.local」去登录，只能用英文字母、数字和下划线
+const LOGIN_ID_RE = /^[A-Za-z0-9_]+$/
+// 姓名要写中文，可以带少数民族姓名里的「·」
+const CHINESE_NAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbf·]+$/
+
 function mapRole(r) {
   return ADMIN_ROLES.includes(r) ? 'admin' : 'teacher'
 }
@@ -45,7 +50,7 @@ export default function Login({ onLogin }) {
     setError('')
     setLoading(true)
     try {
-      const email = `${loginId}@juku.local`
+      const email = `${loginId.trim()}@juku.local`
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
       if (authErr) throw authErr
 
@@ -88,6 +93,14 @@ export default function Login({ onLogin }) {
       setError('请把所有项目填写完整')
       return
     }
+    if (!CHINESE_NAME_RE.test(regName.trim())) {
+      setError('姓名请用中文填写，不要用拼音或英文，也不要加空格')
+      return
+    }
+    if (!LOGIN_ID_RE.test(loginId)) {
+      setError('登录ID只能用英文字母、数字和下划线 _，不能有空格、中文或其他符号')
+      return
+    }
     setLoading(true)
     try {
       const email = `${loginId}@juku.local`
@@ -100,7 +113,7 @@ export default function Login({ onLogin }) {
       const { error: profErr } = await supabase.from('student_profiles').insert({
         id: data.user.id,
         login_id: loginId,
-        name: regName,
+        name: regName.trim(),
         phone: regPhone,
         homeroom_teacher: regHomeroom,
       })
@@ -238,6 +251,9 @@ export default function Login({ onLogin }) {
                 <label className="block text-[13px] font-medium text-zinc-700 mb-1">姓名</label>
                 <input type="text" placeholder="王小明" value={regName} onChange={e => setRegName(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
+                <div className={`text-[11px] mt-1 ${regName && !CHINESE_NAME_RE.test(regName.trim()) ? 'text-red-600' : 'text-zinc-400'}`}>
+                  请用中文填写真实姓名，不要用拼音或英文
+                </div>
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-zinc-700 mb-1">电话号码</label>
@@ -251,8 +267,11 @@ export default function Login({ onLogin }) {
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-zinc-700 mb-1">登录ID</label>
-                <input type="text" placeholder="自己设定一个" value={loginId} onChange={e => setLoginId(e.target.value)}
+                <input type="text" placeholder="自己设定一个，例如 wang_xm2026" value={loginId} onChange={e => setLoginId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
+                <div className={`text-[11px] mt-1 ${loginId && !LOGIN_ID_RE.test(loginId) ? 'text-red-600' : 'text-zinc-400'}`}>
+                  只能用英文字母、数字和下划线 _，不能有空格、中文或其他符号
+                </div>
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-zinc-700 mb-1">密码</label>
