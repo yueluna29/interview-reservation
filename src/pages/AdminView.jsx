@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LayoutDashboard, CalendarDays, ChevronLeft, ChevronRight, ListChecks, Search, Plus, ChevronUp } from 'lucide-react'
 import { supabase } from '../api/supabase'
 import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
 import AvailabilityForm from '../components/AvailabilityForm'
+import StudentPracticeSummary from '../components/StudentPracticeSummary'
 import ScheduleBoard from '../components/ScheduleBoard'
 import { isPast, dateLabel, daysFromToday, weekPosition, WEEKDAYS } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
@@ -43,9 +44,21 @@ export default function AdminView() {
   const [bookings, setBookings] = useState([])
   const [showPast, setShowPast] = useState(false)
   const [search, setSearch] = useState('')
+  const bookingsReq = useRef(0)
+  // bookings 是按哪个搜索词 / 是否包含过去查出来的；和当前不一致时先显示加载中，免得旧列表和汇总对不上
+  const [bookingsFor, setBookingsFor] = useState(null)
   const [students, setStudents] = useState([])
   const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // 姓名或登录ID 对得上的学生（注册时用拼音名的也能用登录ID 找到）
+  const keyword = search.trim()
+  const kwLower = keyword.toLowerCase()
+  const matchedStudents = keyword
+    ? students.filter(st => st.name?.toLowerCase().includes(kwLower) || st.login_id?.toLowerCase().includes(kwLower)).slice(0, 50)
+    : []
+  const listKey = `${keyword}|${showPast}`
+  const listLoading = loading || bookingsFor !== listKey
 
   const currentDate = new Date()
   currentDate.setDate(currentDate.getDate() + dayOffset)
@@ -62,9 +75,12 @@ export default function AdminView() {
     if (tab === 'calendar') loadWeekSlots()
   }, [weekOffset, tab])
 
+  // 搜索时等打完字再查
   useEffect(() => {
-    if (tab === 'list') loadBookings()
-  }, [showPast, tab])
+    if (tab !== 'list') return
+    const t = setTimeout(loadBookings, keyword ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [showPast, tab, keyword, students])
 
   useEffect(() => { loadStudents() }, [])
 
@@ -77,17 +93,27 @@ export default function AdminView() {
   }
 
   // 所有预约：默认只看今天及以后，勾选后包含过去的记录（按时间倒序）
+  // 搜索时不分过去将来，按学生姓名 / 登录ID 或老师名字在数据库里查，最近的在前
   async function loadBookings() {
+    const req = ++bookingsReq.current
     setLoading(true)
     let q = supabase
       .from('reservation_slots_visible')
       .select('*')
       .eq('status', 'booked')
-    if (!showPast) q = q.gte('date', fmtDate(new Date()))
+    if (keyword) {
+      const kw = keyword.replace(/[,()"\\]/g, '')
+      const conds = [`student_name.ilike.*${kw}*`, `teacher_name.ilike.*${kw}*`]
+      if (matchedStudents.length) conds.push(`student_id.in.(${matchedStudents.map(st => st.id).join(',')})`)
+      q = q.or(conds.join(','))
+    } else if (!showPast) q = q.gte('date', fmtDate(new Date()))
+    const ascending = !keyword && !showPast
     const { data } = await q
-      .order('date', { ascending: !showPast })
-      .order('start_time', { ascending: !showPast })
+      .order('date', { ascending })
+      .order('start_time', { ascending })
+    if (req !== bookingsReq.current) return
     setBookings(data || [])
+    setBookingsFor(listKey)
     setLoading(false)
   }
 
@@ -157,12 +183,8 @@ export default function AdminView() {
     return { ...base, tone: 'open', title: '空闲' }
   }
 
-  const keyword = search.trim()
-  const filteredBookings = keyword
-    ? bookings.filter(b => b.student_name?.includes(keyword) || b.teacher_name?.includes(keyword))
-    : bookings
   const bookingsByDate = []
-  for (const b of filteredBookings) {
+  for (const b of bookings) {
     const last = bookingsByDate[bookingsByDate.length - 1]
     if (last && last.date === b.date) last.items.push(b)
     else bookingsByDate.push({ date: b.date, items: [b] })
@@ -246,21 +268,33 @@ export default function AdminView() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="搜索学生或老师"
+                placeholder="搜学生姓名 / 登录ID，或老师名字"
                 className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-zinc-300 text-[13px]"
               />
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-zinc-500 shrink-0">
-              <input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} />
-              包含过去
-            </label>
+            {keyword ? (
+              <span className="text-xs text-zinc-400 shrink-0">包含过去的记录</span>
+            ) : (
+              <label className="flex items-center gap-1.5 text-xs text-zinc-500 shrink-0">
+                <input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} />
+                包含过去
+              </label>
+            )}
           </div>
-          <div className="text-xs text-zinc-400 mb-2">共 {filteredBookings.length} 条预约，点击可编辑</div>
 
-          {loading ? (
+          {/* 搜到学生时，先给每位同学一个汇总：练习过几次、还约了几次 */}
+          {keyword && !listLoading && <StudentPracticeSummary students={matchedStudents} bookings={bookings} />}
+
+          {!listLoading && bookings.length > 0 && (
+            <div className="text-xs text-zinc-400 mb-2">
+              {keyword ? `找到 ${bookings.length} 条预约记录，最近的在前` : `共 ${bookings.length} 条预约`}，点击可编辑
+            </div>
+          )}
+
+          {listLoading ? (
             <div className="text-sm text-zinc-400 py-8 text-center">加载中...</div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="text-sm text-zinc-400 py-8 text-center">没有预约</div>
+          ) : bookings.length === 0 ? (
+            <div className="text-sm text-zinc-400 py-8 text-center">{keyword ? '没有找到相关的预约' : '没有预约'}</div>
           ) : bookingsByDate.map(group => (
             <div key={group.date} className="mb-4">
               <div className="text-[13px] font-semibold text-zinc-700 mb-1.5">{dateLabel(group.date)}</div>
@@ -271,7 +305,7 @@ export default function AdminView() {
                   <button
                     key={b.id}
                     onClick={() => setEditing(b)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white text-left text-[13px] hover:border-teal-300 transition-colors ${past ? 'opacity-50' : ''}`}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white text-left text-[13px] hover:border-teal-300 transition-colors ${past && !keyword ? 'opacity-50' : ''}`}
                   >
                     <span className="font-medium w-[88px] shrink-0">{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}</span>
                     <span className="flex-1 min-w-0 truncate">
@@ -282,6 +316,11 @@ export default function AdminView() {
                       {b.room && <span className="text-zinc-400 ml-1.5">{b.room}</span>}
                     </span>
                     <span className="flex-1 min-w-0 truncate font-medium text-teal-700">{b.student_name}</span>
+                    {keyword && (
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${past ? 'bg-zinc-100 text-zinc-500' : 'bg-teal-50 text-teal-700'}`}>
+                        {past ? '已练习' : '待练习'}
+                      </span>
+                    )}
                   </button>
                 )
               })}
