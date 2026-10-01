@@ -5,8 +5,10 @@ import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
 import AvailabilityForm from '../components/AvailabilityForm'
 import StudentPracticeSummary from '../components/StudentPracticeSummary'
+import BookingList from '../components/BookingList'
+import { matchStudents, searchBookings } from '../utils/bookingSearch'
 import ScheduleBoard from '../components/ScheduleBoard'
-import { isPast, dateLabel, daysFromToday, weekPosition, WEEKDAYS } from '../utils/time'
+import { isPast, daysFromToday, weekPosition, WEEKDAYS } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
 
 const STATUS_BADGE = {
@@ -51,12 +53,8 @@ export default function AdminView() {
   const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // 姓名或登录ID 对得上的学生（注册时用拼音名的也能用登录ID 找到）
   const keyword = search.trim()
-  const kwLower = keyword.toLowerCase()
-  const matchedStudents = keyword
-    ? students.filter(st => st.name?.toLowerCase().includes(kwLower) || st.login_id?.toLowerCase().includes(kwLower)).slice(0, 50)
-    : []
+  const matchedStudents = keyword ? matchStudents(students, keyword) : []
   const listKey = `${keyword}|${showPast}`
   const listLoading = loading || bookingsFor !== listKey
 
@@ -93,24 +91,22 @@ export default function AdminView() {
   }
 
   // 所有预约：默认只看今天及以后，勾选后包含过去的记录（按时间倒序）
-  // 搜索时不分过去将来，按学生姓名 / 登录ID 或老师名字在数据库里查，最近的在前
+  // 搜索时不分过去将来，按学生姓名 / 登录ID 或老师名字查，最近的在前
   async function loadBookings() {
     const req = ++bookingsReq.current
     setLoading(true)
-    let q = supabase
-      .from('reservation_slots_visible')
-      .select('*')
-      .eq('status', 'booked')
+    let q
     if (keyword) {
-      const kw = keyword.replace(/[,()"\\]/g, '')
-      const conds = [`student_name.ilike.*${kw}*`, `teacher_name.ilike.*${kw}*`]
-      if (matchedStudents.length) conds.push(`student_id.in.(${matchedStudents.map(st => st.id).join(',')})`)
-      q = q.or(conds.join(','))
-    } else if (!showPast) q = q.gte('date', fmtDate(new Date()))
-    const ascending = !keyword && !showPast
+      q = searchBookings(keyword, matchedStudents.map(st => st.id))
+    } else {
+      q = supabase
+        .from('reservation_slots_visible')
+        .select('*')
+        .eq('status', 'booked')
+      if (!showPast) q = q.gte('date', fmtDate(new Date()))
+      q = q.order('date', { ascending: !showPast }).order('start_time', { ascending: !showPast })
+    }
     const { data } = await q
-      .order('date', { ascending })
-      .order('start_time', { ascending })
     if (req !== bookingsReq.current) return
     setBookings(data || [])
     setBookingsFor(listKey)
@@ -181,13 +177,6 @@ export default function AdminView() {
     if (slot.status === 'cancelled') return { ...base, tone: 'cancelled', title: '已取消' }
     if (slot.status === 'blocked') return { ...base, tone: 'blocked', title: slot.note || '不可约', sub: '不可约' }
     return { ...base, tone: 'open', title: '空闲' }
-  }
-
-  const bookingsByDate = []
-  for (const b of bookings) {
-    const last = bookingsByDate[bookingsByDate.length - 1]
-    if (last && last.date === b.date) last.items.push(b)
-    else bookingsByDate.push({ date: b.date, items: [b] })
   }
 
   return (
@@ -295,37 +284,9 @@ export default function AdminView() {
             <div className="text-sm text-zinc-400 py-8 text-center">加载中...</div>
           ) : bookings.length === 0 ? (
             <div className="text-sm text-zinc-400 py-8 text-center">{keyword ? '没有找到相关的预约' : '没有预约'}</div>
-          ) : bookingsByDate.map(group => (
-            <div key={group.date} className="mb-4">
-              <div className="text-[13px] font-semibold text-zinc-700 mb-1.5">{dateLabel(group.date)}</div>
-              {group.items.map(b => {
-                const past = isPast(b)
-                const ac = getColor(b.teacher_id)
-                return (
-                  <button
-                    key={b.id}
-                    onClick={() => setEditing(b)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white text-left text-[13px] hover:border-teal-300 transition-colors ${past && !keyword ? 'opacity-50' : ''}`}
-                  >
-                    <span className="font-medium w-[88px] shrink-0">{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}</span>
-                    <span className="flex-1 min-w-0 truncate">
-                      <span className={`inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[10px] font-semibold mr-1.5 align-middle ${ac.bg} ${ac.text}`}>
-                        {b.teacher_name?.[0]}
-                      </span>
-                      {b.teacher_name}
-                      {b.room && <span className="text-zinc-400 ml-1.5">{b.room}</span>}
-                    </span>
-                    <span className="flex-1 min-w-0 truncate font-medium text-teal-700">{b.student_name}</span>
-                    {keyword && (
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${past ? 'bg-zinc-100 text-zinc-500' : 'bg-teal-50 text-teal-700'}`}>
-                        {past ? '已练习' : '待练习'}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+          ) : (
+            <BookingList bookings={bookings} showStatus={!!keyword} onSelect={setEditing} />
+          )}
         </>
       ) : tab === 'calendar' ? (
         <>

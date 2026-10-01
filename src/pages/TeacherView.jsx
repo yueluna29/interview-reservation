@@ -6,6 +6,7 @@ import { isPast, weekPosition } from '../utils/time'
 import AvailabilityForm from '../components/AvailabilityForm'
 import ScheduleBoard from '../components/ScheduleBoard'
 import TeacherSlotModal from '../components/TeacherSlotModal'
+import StudentHistorySearch from '../components/StudentHistorySearch'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -85,6 +86,8 @@ export default function TeacherView() {
       </div>
 
       <AvailabilityForm teacherId={profile.auth_user_id} showDate={showDate} />
+
+      <StudentHistorySearch />
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
