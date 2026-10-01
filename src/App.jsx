@@ -79,7 +79,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ session, profile }}>
-      <div className="max-w-[680px] mx-auto px-4 py-2 min-h-screen">
+      <div className="max-w-[1200px] mx-auto px-4 py-2 min-h-screen">
         <NavBar role={role} name={profile.name} onLogout={handleLogout} />
         {role === 'student' && <StudentView />}
         {role === 'teacher' && <TeacherView />}
