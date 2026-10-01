@@ -75,7 +75,7 @@ export default function Login({ onLogin }) {
 
       throw new Error('no profile')
     } catch {
-      setError('ログインIDまたはパスワードが正しくありません')
+      setError('登录ID或密码不正确')
     } finally {
       setLoading(false)
     }
@@ -85,7 +85,7 @@ export default function Login({ onLogin }) {
     e.preventDefault()
     setError('')
     if (!loginId || !password || !regName || !regPhone || !regHomeroom) {
-      setError('全ての項目を入力してください')
+      setError('请把所有项目填写完整')
       return
     }
     setLoading(true)
@@ -116,9 +116,9 @@ export default function Login({ onLogin }) {
       onLogin(data.session, stu)
     } catch (err) {
       if (err.message?.includes('already registered')) {
-        setError('このIDは既に使用されています')
+        setError('这个登录ID已经被使用了')
       } else {
-        setError(err.message || '登録に失敗しました')
+        setError(err.message || '注册失败')
       }
     } finally {
       setLoading(false)
@@ -130,7 +130,7 @@ export default function Login({ onLogin }) {
     setError('')
     setFoundLoginId('')
     if (!forgotName || !forgotPhone) {
-      setError('氏名と電話番号を入力してください')
+      setError('请填写姓名和电话号码')
       return
     }
     setLoading(true)
@@ -140,12 +140,12 @@ export default function Login({ onLogin }) {
       })
       if (err) throw err
       if (!data || data.length === 0) {
-        setError('一致する情報が見つかりませんでした')
+        setError('没有找到匹配的信息')
       } else {
         setFoundLoginId(data[0].login_id)
       }
     } catch {
-      setError('検索に失敗しました')
+      setError('查询失败')
     } finally {
       setLoading(false)
     }
@@ -155,11 +155,11 @@ export default function Login({ onLogin }) {
     e.preventDefault()
     setError('')
     if (!resetLoginId || !resetName || !resetPhone || !newPassword) {
-      setError('全ての項目を入力してください')
+      setError('请把所有项目填写完整')
       return
     }
     if (newPassword.length < 6) {
-      setError('パスワードは6文字以上にしてください')
+      setError('密码至少要 6 位')
       return
     }
     setLoading(true)
@@ -171,10 +171,10 @@ export default function Login({ onLogin }) {
       if (data === 'ok') {
         setResetDone(true)
       } else {
-        setError('入力情報が一致しません')
+        setError('填写的信息不匹配')
       }
     } catch {
-      setError('パスワードリセットに失敗しました')
+      setError('重置密码失败')
     } finally {
       setLoading(false)
     }
@@ -184,14 +184,14 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="text-center mb-8">
         <div className="text-[22px] font-bold mb-1">早稲田理工塾</div>
-        <div className="text-[13px] text-zinc-500">面試練習予約システム</div>
+        <div className="text-[13px] text-zinc-500">面试练习预约系统</div>
       </div>
 
       <div className="w-full max-w-[360px] p-7 rounded-2xl border border-zinc-200 bg-white">
 
         {mode !== 'login' && (
           <button onClick={() => switchMode('login')} className="flex items-center gap-1 text-xs text-zinc-400 mb-4 hover:text-zinc-600">
-            <ArrowLeft size={14} /> ログインに戻る
+            <ArrowLeft size={14} /> 返回登录
           </button>
         )}
 
@@ -199,12 +199,12 @@ export default function Login({ onLogin }) {
         {mode === 'login' && (
           <form onSubmit={handleLogin}>
             <div className="mb-4">
-              <label className="block text-[13px] font-medium text-zinc-700 mb-1.5">ログインID</label>
+              <label className="block text-[13px] font-medium text-zinc-700 mb-1.5">登录ID</label>
               <input type="text" placeholder="your_id" value={loginId} onChange={e => setLoginId(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
             </div>
             <div className="mb-5">
-              <label className="block text-[13px] font-medium text-zinc-700 mb-1.5">パスワード</label>
+              <label className="block text-[13px] font-medium text-zinc-700 mb-1.5">密码</label>
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
                   className="w-full px-3 py-2.5 pr-10 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
@@ -216,14 +216,14 @@ export default function Login({ onLogin }) {
             {error && <div className="mb-4 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-[10px] bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-              <LogIn size={15} /> {loading ? '処理中...' : 'ログイン'}
+              <LogIn size={15} /> {loading ? '处理中...' : '登录'}
             </button>
             <div className="flex justify-between mt-5 text-xs text-zinc-400">
               <button type="button" onClick={() => switchMode('register')} className="text-teal-600 font-medium flex items-center gap-1">
-                <UserPlus size={12} /> 新規登録（学生）
+                <UserPlus size={12} /> 学生注册
               </button>
               <button type="button" onClick={() => switchMode('forgot')} className="hover:text-zinc-600">
-                ID・パスワードを忘れた
+                忘记登录ID / 密码
               </button>
             </div>
           </form>
@@ -232,38 +232,38 @@ export default function Login({ onLogin }) {
         {/* ── Register ── */}
         {mode === 'register' && (
           <form onSubmit={handleRegister}>
-            <div className="text-sm font-semibold mb-4">学生新規登録</div>
+            <div className="text-sm font-semibold mb-4">学生注册</div>
             <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">氏名</label>
-                <input type="text" placeholder="山田太郎" value={regName} onChange={e => setRegName(e.target.value)}
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">姓名</label>
+                <input type="text" placeholder="王小明" value={regName} onChange={e => setRegName(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">電話番号</label>
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">电话号码</label>
                 <input type="tel" placeholder="090-1234-5678" value={regPhone} onChange={e => setRegPhone(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">担任の先生</label>
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">班主任</label>
                 <input type="text" placeholder="陈老师" value={regHomeroom} onChange={e => setRegHomeroom(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">ログインID</label>
-                <input type="text" placeholder="自分で決めてください" value={loginId} onChange={e => setLoginId(e.target.value)}
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">登录ID</label>
+                <input type="text" placeholder="自己设定一个" value={loginId} onChange={e => setLoginId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">パスワード</label>
-                <input type={showPw ? 'text' : 'password'} placeholder="6文字以上" value={password} onChange={e => setPassword(e.target.value)}
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">密码</label>
+                <input type={showPw ? 'text' : 'password'} placeholder="至少 6 位" value={password} onChange={e => setPassword(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
             </div>
             {error && <div className="mb-4 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-[10px] bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-              <UserPlus size={15} /> {loading ? '処理中...' : '登録する'}
+              <UserPlus size={15} /> {loading ? '处理中...' : '注册'}
             </button>
           </form>
         )}
@@ -271,31 +271,31 @@ export default function Login({ onLogin }) {
         {/* ── Forgot Login ID ── */}
         {mode === 'forgot' && (
           <form onSubmit={handleForgot}>
-            <div className="text-sm font-semibold mb-4">ログインID検索</div>
+            <div className="text-sm font-semibold mb-4">找回登录ID</div>
             <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">氏名</label>
-                <input type="text" placeholder="登録時の氏名" value={forgotName} onChange={e => setForgotName(e.target.value)}
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">姓名</label>
+                <input type="text" placeholder="注册时填写的姓名" value={forgotName} onChange={e => setForgotName(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-1">電話番号</label>
-                <input type="tel" placeholder="登録時の電話番号" value={forgotPhone} onChange={e => setForgotPhone(e.target.value)}
+                <label className="block text-[13px] font-medium text-zinc-700 mb-1">电话号码</label>
+                <input type="tel" placeholder="注册时填写的电话号码" value={forgotPhone} onChange={e => setForgotPhone(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
               </div>
             </div>
             {error && <div className="mb-4 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
             {foundLoginId && (
               <div className="mb-4 text-[13px] text-teal-700 bg-teal-50 px-3 py-2 rounded-lg">
-                あなたのログインID：<span className="font-bold text-base">{foundLoginId}</span>
+                你的登录ID：<span className="font-bold text-base">{foundLoginId}</span>
               </div>
             )}
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-[10px] bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-              {loading ? '検索中...' : 'IDを検索'}
+              {loading ? '查询中...' : '查询登录ID'}
             </button>
             <button type="button" onClick={() => switchMode('reset')} className="w-full mt-3 text-xs text-zinc-400 hover:text-zinc-600 flex items-center justify-center gap-1">
-              <KeyRound size={12} /> パスワードをリセットしたい
+              <KeyRound size={12} /> 我要重置密码
             </button>
           </form>
         )}
@@ -303,43 +303,43 @@ export default function Login({ onLogin }) {
         {/* ── Reset Password ── */}
         {mode === 'reset' && (
           <form onSubmit={handleReset}>
-            <div className="text-sm font-semibold mb-4">パスワードリセット</div>
+            <div className="text-sm font-semibold mb-4">重置密码</div>
             {resetDone ? (
               <div className="text-center py-4">
-                <div className="text-teal-600 font-semibold mb-3">パスワードをリセットしました</div>
+                <div className="text-teal-600 font-semibold mb-3">密码已重置，请用新密码登录</div>
                 <button type="button" onClick={() => switchMode('login')}
                   className="px-6 py-2 rounded-[10px] bg-teal-600 text-white text-sm font-semibold">
-                  ログインに戻る
+                  返回登录
                 </button>
               </div>
             ) : (
               <>
                 <div className="flex flex-col gap-3 mb-5">
                   <div>
-                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">ログインID</label>
+                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">登录ID</label>
                     <input type="text" value={resetLoginId} onChange={e => setResetLoginId(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
                   </div>
                   <div>
-                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">氏名</label>
+                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">姓名</label>
                     <input type="text" value={resetName} onChange={e => setResetName(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
                   </div>
                   <div>
-                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">電話番号</label>
+                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">电话号码</label>
                     <input type="tel" value={resetPhone} onChange={e => setResetPhone(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
                   </div>
                   <div>
-                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">新しいパスワード</label>
-                    <input type={showPw ? 'text' : 'password'} placeholder="6文字以上" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                    <label className="block text-[13px] font-medium text-zinc-700 mb-1">新密码</label>
+                    <input type={showPw ? 'text' : 'password'} placeholder="至少 6 位" value={newPassword} onChange={e => setNewPassword(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-[10px] border border-zinc-300 text-sm outline-none focus:border-teal-400" />
                   </div>
                 </div>
                 {error && <div className="mb-4 text-[13px] text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
                 <button type="submit" disabled={loading}
                   className="w-full py-2.5 rounded-[10px] bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  <KeyRound size={15} /> {loading ? '処理中...' : 'パスワードをリセット'}
+                  <KeyRound size={15} /> {loading ? '处理中...' : '重置密码'}
                 </button>
               </>
             )}

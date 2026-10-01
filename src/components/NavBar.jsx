@@ -14,7 +14,7 @@ export default function NavBar({ role, name, onLogout }) {
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">早稲田理工塾</span>
         <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-          予約システム
+          预约系统
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -26,7 +26,7 @@ export default function NavBar({ role, name, onLogout }) {
           onClick={onLogout}
           className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
         >
-          <LogOut size={13} /> ログアウト
+          <LogOut size={13} /> 退出登录
         </button>
       </div>
     </div>

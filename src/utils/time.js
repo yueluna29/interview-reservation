@@ -50,8 +50,11 @@ export function weekPosition(dateStr) {
   return { offset: Math.floor((daysFromToday(dateStr) + todayIdx - dayIdx) / 7), dayIdx }
 }
 
-// '2026-09-24' → '9/24（木）'
+// 按 getDay() 排：周日、周一 … 周六
+export const WEEKDAYS = '日一二三四五六'
+
+// '2026-09-24' → '9/24（周四）'
 export function dateLabel(dateStr) {
   const d = new Date(`${dateStr}T00:00:00`)
-  return `${d.getMonth() + 1}/${d.getDate()}（${'日月火水木金土'[d.getDay()]}）`
+  return `${d.getMonth() + 1}/${d.getDate()}（周${WEEKDAYS[d.getDay()]}）`
 }

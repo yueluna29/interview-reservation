@@ -193,7 +193,7 @@ export default function StudentView() {
             <div className="flex flex-col gap-2.5 mb-6 text-sm text-zinc-600">
               <div className="flex items-center gap-2.5">
                 <CalendarDays size={15} className="text-zinc-400" />
-                <span>{new Date(modal.date).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                <span>{dateLabel(modal.date)}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Clock size={15} className="text-zinc-400" />
@@ -260,8 +260,6 @@ export default function StudentView() {
             <ListChecks size={15} className="text-zinc-500" /> 我的预约记录
           </div>
           {myBookings.map(b => {
-            const d = new Date(b.date)
-            const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
             const st = b.status === 'cancelled' ? 'cancelled'
               : new Date(`${b.date}T${b.start_time}`) > new Date() ? 'upcoming' : 'done'
             const badge = STATUS_BADGE[st]
@@ -270,7 +268,7 @@ export default function StudentView() {
               <div key={b.id} className="flex items-center justify-between px-3.5 py-2.5 rounded-[10px] border border-zinc-100 mb-1.5 bg-white">
                 <div>
                   <div className={`text-[13px] font-medium ${st === 'cancelled' ? 'line-through text-zinc-400' : ''}`}>
-                    {d.getMonth() + 1}/{d.getDate()}（{dayLabel}）{b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}
+                    {dateLabel(b.date)} {b.start_time?.slice(0, 5)}-{b.end_time?.slice(0, 5)}
                   </div>
                   <div className="text-xs text-zinc-400 mt-0.5">{b.teacher_name}{b.room && ` · ${b.room}`}</div>
                 </div>

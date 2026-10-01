@@ -1,9 +1,7 @@
 import { Fragment } from 'react'
 import { MapPin } from 'lucide-react'
-import { fmtDate, buildTimeRows, dateLabel } from '../utils/time'
+import { fmtDate, buildTimeRows, dateLabel, WEEKDAYS } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
-
-const WEEKDAY = '日月火水木金土'
 
 const TONES = {
   open: 'bg-emerald-50 border-emerald-300 text-emerald-700',
@@ -90,7 +88,7 @@ export default function ScheduleBoard({
                 ? 'bg-zinc-800 border-zinc-800 text-white'
                 : 'bg-white border-zinc-200 hover:border-zinc-400'}`}
             >
-              <span className={`text-[10px] ${active ? 'text-zinc-300' : 'text-zinc-400'}`}>{WEEKDAY[d.getDay()]}</span>
+              <span className={`text-[10px] ${active ? 'text-zinc-300' : 'text-zinc-400'}`}>{WEEKDAYS[d.getDay()]}</span>
               <span className={`text-sm font-semibold ${!active && isToday(d) ? accentText : ''}`}>{d.getDate()}</span>
               <span className={`text-[10px] leading-[14px] h-[14px] whitespace-nowrap ${active ? 'text-zinc-300' : note ? accentText : 'text-zinc-300'}`}>
                 {note || '—'}

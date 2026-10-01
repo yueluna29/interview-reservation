@@ -5,7 +5,7 @@ import { useAuth } from '../App'
 import AdminSlotModal from '../components/AdminSlotModal'
 import AvailabilityForm from '../components/AvailabilityForm'
 import ScheduleBoard from '../components/ScheduleBoard'
-import { isPast, dateLabel, daysFromToday, weekPosition } from '../utils/time'
+import { isPast, dateLabel, daysFromToday, weekPosition, WEEKDAYS } from '../utils/time'
 import { TEACHER_COLORS } from '../utils/teacherColors'
 
 const STATUS_BADGE = {
@@ -50,7 +50,7 @@ export default function AdminView() {
   const currentDate = new Date()
   currentDate.setDate(currentDate.getDate() + dayOffset)
   const dateStr = fmtDate(currentDate)
-  const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][currentDate.getDay()]
+  const dayLabel = '周' + WEEKDAYS[currentDate.getDay()]
 
   const weekDates = getWeekDates(weekOffset)
 
@@ -258,7 +258,7 @@ export default function AdminView() {
           <div className="text-xs text-zinc-400 mb-2">共 {filteredBookings.length} 条预约，点击可编辑</div>
 
           {loading ? (
-            <div className="text-sm text-zinc-400 py-8 text-center">読み込み中...</div>
+            <div className="text-sm text-zinc-400 py-8 text-center">加载中...</div>
           ) : filteredBookings.length === 0 ? (
             <div className="text-sm text-zinc-400 py-8 text-center">没有预约</div>
           ) : bookingsByDate.map(group => (
@@ -342,9 +342,9 @@ export default function AdminView() {
           </div>
 
           {loading ? (
-            <div className="text-sm text-zinc-400 py-8 text-center">読み込み中...</div>
+            <div className="text-sm text-zinc-400 py-8 text-center">加载中...</div>
           ) : slots.length === 0 ? (
-            <div className="text-sm text-zinc-400 py-8 text-center">この日の時段はありません</div>
+            <div className="text-sm text-zinc-400 py-8 text-center">这天没有时段</div>
           ) : (
             <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <colgroup>

@@ -62,7 +62,7 @@ function App() {
   if (session === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-zinc-400 text-sm">読み込み中...</div>
+        <div className="text-zinc-400 text-sm">加载中...</div>
       </div>
     )
   }
